@@ -1,5 +1,10 @@
 package internals
 
+import (
+	"fmt"
+	"os"
+)
+
 type NES struct {
 	CPU         *CPU
 	APU         *APU
@@ -20,6 +25,14 @@ func NewNES() *NES {
 	nes.CPU = cpu
 
 	return &nes
+}
+
+func (nes *NES) LoadFile(filename string) {
+	data, err := os.ReadFile(filename)
+	if err != nil {
+		panic("Could not read the input file")
+	}
+	fmt.Println(data)
 }
 
 func (nes *NES) Step() uint64 {

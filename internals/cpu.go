@@ -57,7 +57,7 @@ var instructions = [256]opcode{
 	{ID: 0x01, AddressingMode: IndirectX, Size: 2, Cycles: 6, PageCycles: 0, Name: "ORA", run: _ORA},
 	{}, // 0x02
 	{}, // 0x03
-	{}, // 0x04
+	{ID: 0x04, AddressingMode: ZeroPage, Size: 2, Cycles: 3, PageCycles: 0, Name: "NOP", run: _NOP},
 	{ID: 0x05, AddressingMode: ZeroPage, Size: 2, Cycles: 3, PageCycles: 0, Name: "ORA", run: _ORA},
 	{ID: 0x06, AddressingMode: ZeroPage, Size: 2, Cycles: 5, PageCycles: 0, Name: "ASL", run: _ASL},
 	{}, // 0x07
@@ -65,7 +65,7 @@ var instructions = [256]opcode{
 	{ID: 0x09, AddressingMode: Immediate, Size: 2, Cycles: 2, PageCycles: 0, Name: "ORA", run: _ORA},
 	{ID: 0x0A, AddressingMode: Accumulator, Size: 1, Cycles: 2, PageCycles: 0, Name: "ASL", run: _ASL},
 	{}, // 0x0B
-	{}, // 0x0C
+	{ID: 0x0C, AddressingMode: Implied, Size: 3, Cycles: 4, PageCycles: 0, Name: "NOP", run: _NOP},
 	{ID: 0x0D, AddressingMode: Absolute, Size: 3, Cycles: 4, PageCycles: 0, Name: "ORA", run: _ORA},
 	{ID: 0x0E, AddressingMode: Absolute, Size: 3, Cycles: 6, PageCycles: 0, Name: "ASL", run: _ASL},
 	{}, // 0x0F
@@ -73,15 +73,15 @@ var instructions = [256]opcode{
 	{ID: 0x11, AddressingMode: IndirectY, Size: 2, Cycles: 5, PageCycles: 1, Name: "ORA", run: _ORA},
 	{}, // 0x12
 	{}, // 0x13
-	{}, // 0x14
+	{ID: 0x14, AddressingMode: ZeroPageX, Size: 2, Cycles: 4, PageCycles: 0, Name: "NOP", run: _NOP},
 	{ID: 0x15, AddressingMode: ZeroPageX, Size: 2, Cycles: 4, PageCycles: 0, Name: "ORA", run: _ORA},
 	{ID: 0x16, AddressingMode: ZeroPageX, Size: 2, Cycles: 6, PageCycles: 0, Name: "ASL", run: _ASL},
 	{}, // 0x17
 	{ID: 0x18, AddressingMode: Implied, Size: 1, Cycles: 2, PageCycles: 0, Name: "CLC", run: _CLC},
 	{ID: 0x19, AddressingMode: AbsoluteY, Size: 3, Cycles: 4, PageCycles: 1, Name: "ORA", run: _ORA},
-	{}, // 0x1A
+	{ID: 0x1A, AddressingMode: Implied, Size: 1, Cycles: 2, PageCycles: 0, Name: "NOP", run: _NOP},
 	{}, // 0x1B
-	{}, // 0x1C
+	{ID: 0x1C, AddressingMode: Implied, Size: 3, Cycles: 5, PageCycles: 0, Name: "NOP", run: _NOP}, // Something with page crossing; Might need to read the arguments. Ignore for now
 	{ID: 0x1D, AddressingMode: AbsoluteX, Size: 3, Cycles: 4, PageCycles: 1, Name: "ORA", run: _ORA},
 	{ID: 0x1E, AddressingMode: AbsoluteX, Size: 3, Cycles: 7, PageCycles: 0, Name: "ASL", run: _ASL},
 	{}, // 0x1F
@@ -97,7 +97,7 @@ var instructions = [256]opcode{
 	{ID: 0x29, AddressingMode: Immediate, Size: 2, Cycles: 2, PageCycles: 0, Name: "AND", run: _AND},
 	{ID: 0x2A, AddressingMode: Accumulator, Size: 1, Cycles: 2, PageCycles: 0, Name: "ROL", run: _ROL},
 	{}, // 0x2B
-	{ID: 0x2C, AddressingMode: Absolute, Size: 2, Cycles: 4, PageCycles: 0, Name: "BIT", run: _BIT},
+	{ID: 0x2C, AddressingMode: Absolute, Size: 3, Cycles: 4, PageCycles: 0, Name: "BIT", run: _BIT},
 	{ID: 0x2D, AddressingMode: Absolute, Size: 3, Cycles: 4, PageCycles: 0, Name: "AND", run: _AND},
 	{ID: 0x2E, AddressingMode: Absolute, Size: 3, Cycles: 6, PageCycles: 0, Name: "ROL", run: _ROL},
 	{}, // 0x2F
@@ -105,15 +105,15 @@ var instructions = [256]opcode{
 	{ID: 0x31, AddressingMode: IndirectY, Size: 2, Cycles: 5, PageCycles: 1, Name: "AND", run: _AND},
 	{}, // 0x32
 	{}, // 0x33
-	{}, // 0x34
+	{ID: 0x34, AddressingMode: ZeroPageX, Size: 2, Cycles: 4, PageCycles: 0, Name: "NOP", run: _NOP},
 	{ID: 0x35, AddressingMode: ZeroPageX, Size: 2, Cycles: 4, PageCycles: 0, Name: "AND", run: _AND},
 	{ID: 0x36, AddressingMode: ZeroPageX, Size: 2, Cycles: 6, PageCycles: 0, Name: "ROL", run: _ROL},
 	{}, // 0x37
 	{ID: 0x38, AddressingMode: Implied, Size: 1, Cycles: 2, PageCycles: 0, Name: "SEC", run: _SEC},
 	{ID: 0x39, AddressingMode: AbsoluteY, Size: 3, Cycles: 4, PageCycles: 1, Name: "AND", run: _AND},
-	{}, // 0x3A
+	{ID: 0x3A, AddressingMode: Implied, Size: 1, Cycles: 2, PageCycles: 0, Name: "NOP", run: _NOP},
 	{}, // 0x3B
-	{}, // 0x3C
+	{ID: 0x3C, AddressingMode: Implied, Size: 3, Cycles: 5, PageCycles: 0, Name: "NOP", run: _NOP}, // Something with page crossing; Might need to read the arguments. Ignore for now
 	{ID: 0x3D, AddressingMode: AbsoluteX, Size: 3, Cycles: 4, PageCycles: 1, Name: "AND", run: _AND},
 	{ID: 0x3E, AddressingMode: AbsoluteX, Size: 3, Cycles: 7, PageCycles: 0, Name: "ROL", run: _ROL},
 	{}, // 0x3F
@@ -121,11 +121,11 @@ var instructions = [256]opcode{
 	{ID: 0x41, AddressingMode: IndirectX, Size: 2, Cycles: 6, PageCycles: 0, Name: "EOR", run: _EOR},
 	{}, // 0x42
 	{}, // 0x43
-	{}, // 0x44
+	{ID: 0x44, AddressingMode: ZeroPage, Size: 2, Cycles: 3, PageCycles: 0, Name: "NOP", run: _NOP},
 	{ID: 0x45, AddressingMode: ZeroPage, Size: 2, Cycles: 3, PageCycles: 0, Name: "EOR", run: _EOR},
 	{ID: 0x46, AddressingMode: ZeroPage, Size: 2, Cycles: 5, PageCycles: 0, Name: "LSR", run: _LSR},
 	{}, // 0x47
-	{ID: 0x48, AddressingMode: Implied, Size: 3, Cycles: 3, PageCycles: 0, Name: "PHA", run: _PHA},
+	{ID: 0x48, AddressingMode: Implied, Size: 1, Cycles: 3, PageCycles: 0, Name: "PHA", run: _PHA},
 	{ID: 0x49, AddressingMode: Immediate, Size: 2, Cycles: 2, PageCycles: 0, Name: "EOR", run: _EOR},
 	{ID: 0x4A, AddressingMode: Accumulator, Size: 1, Cycles: 2, PageCycles: 0, Name: "LSR", run: _LSR},
 	{}, // 0x4B
@@ -137,15 +137,15 @@ var instructions = [256]opcode{
 	{ID: 0x51, AddressingMode: IndirectY, Size: 2, Cycles: 5, PageCycles: 1, Name: "EOR", run: _EOR},
 	{}, // 0x52
 	{}, // 0x53
-	{}, // 0x54
+	{ID: 0x54, AddressingMode: ZeroPageX, Size: 2, Cycles: 4, PageCycles: 0, Name: "NOP", run: _NOP},
 	{ID: 0x55, AddressingMode: ZeroPageX, Size: 2, Cycles: 4, PageCycles: 0, Name: "EOR", run: _EOR},
 	{ID: 0x56, AddressingMode: ZeroPageX, Size: 2, Cycles: 6, PageCycles: 0, Name: "LSR", run: _LSR},
 	{}, // 0x57
 	{ID: 0x58, AddressingMode: Implied, Size: 1, Cycles: 2, PageCycles: 0, Name: "CLI", run: _CLI},
 	{ID: 0x59, AddressingMode: AbsoluteY, Size: 3, Cycles: 4, PageCycles: 1, Name: "EOR", run: _EOR},
-	{}, // 0x5A
+	{ID: 0x5A, AddressingMode: Implied, Size: 1, Cycles: 2, PageCycles: 0, Name: "NOP", run: _NOP},
 	{}, // 0x5B
-	{}, // 0x5C
+	{ID: 0x5C, AddressingMode: Implied, Size: 3, Cycles: 5, PageCycles: 0, Name: "NOP", run: _NOP}, // Something with page crossing; Might need to read the arguments. Ignore for now
 	{ID: 0x5D, AddressingMode: AbsoluteX, Size: 3, Cycles: 4, PageCycles: 1, Name: "EOR", run: _EOR},
 	{ID: 0x5E, AddressingMode: AbsoluteX, Size: 3, Cycles: 7, PageCycles: 0, Name: "LSR", run: _LSR},
 	{}, // 0x5F
@@ -153,7 +153,7 @@ var instructions = [256]opcode{
 	{ID: 0x61, AddressingMode: IndirectX, Size: 2, Cycles: 6, PageCycles: 0, Name: "ADC", run: _ADC},
 	{}, // 0x62
 	{}, // 0x63
-	{}, // 0x64
+	{ID: 0x64, AddressingMode: ZeroPage, Size: 2, Cycles: 3, PageCycles: 0, Name: "NOP", run: _NOP},
 	{ID: 0x65, AddressingMode: ZeroPage, Size: 2, Cycles: 3, PageCycles: 0, Name: "ADC", run: _ADC},
 	{ID: 0x66, AddressingMode: ZeroPage, Size: 2, Cycles: 5, PageCycles: 0, Name: "ROR", run: _ROR},
 	{}, // 0x67
@@ -169,28 +169,28 @@ var instructions = [256]opcode{
 	{ID: 0x71, AddressingMode: IndirectY, Size: 2, Cycles: 5, PageCycles: 1, Name: "ADC", run: _ADC},
 	{}, // 0x72
 	{}, // 0x73
-	{}, // 0x74
+	{ID: 0x74, AddressingMode: ZeroPageX, Size: 2, Cycles: 4, PageCycles: 0, Name: "NOP", run: _NOP},
 	{ID: 0x75, AddressingMode: ZeroPageX, Size: 2, Cycles: 4, PageCycles: 0, Name: "ADC", run: _ADC},
 	{ID: 0x76, AddressingMode: ZeroPageX, Size: 2, Cycles: 6, PageCycles: 0, Name: "ROR", run: _ROR},
 	{}, // 0x77
 	{ID: 0x78, AddressingMode: Implied, Size: 1, Cycles: 2, PageCycles: 0, Name: "SEI", run: _SEI},
 	{ID: 0x79, AddressingMode: AbsoluteY, Size: 3, Cycles: 4, PageCycles: 1, Name: "ADC", run: _ADC},
-	{}, // 0x7A
+	{ID: 0x7A, AddressingMode: Implied, Size: 1, Cycles: 2, PageCycles: 0, Name: "NOP", run: _NOP},
 	{}, // 0x7B
-	{}, // 0x7C
+	{ID: 0x7C, AddressingMode: Implied, Size: 3, Cycles: 5, PageCycles: 0, Name: "NOP", run: _NOP}, // Something with page crossing; Might need to read the arguments. Ignore for now
 	{ID: 0x7D, AddressingMode: AbsoluteX, Size: 3, Cycles: 4, PageCycles: 1, Name: "ADC", run: _ADC},
 	{ID: 0x7E, AddressingMode: AbsoluteX, Size: 3, Cycles: 7, PageCycles: 0, Name: "ROR", run: _ROR},
 	{}, // 0x7F
-	{}, // 0x80
+	{ID: 0x80, AddressingMode: Immediate, Size: 2, Cycles: 2, PageCycles: 0, Name: "NOP", run: _NOP},
 	{ID: 0x81, AddressingMode: IndirectX, Size: 2, Cycles: 6, PageCycles: 0, Name: "STA", run: _STA},
-	{}, // 0x82
+	{ID: 0x82, AddressingMode: Immediate, Size: 2, Cycles: 2, PageCycles: 0, Name: "NOP", run: _NOP},
 	{}, // 0x83
 	{ID: 0x84, AddressingMode: ZeroPage, Size: 2, Cycles: 3, PageCycles: 0, Name: "STY", run: _STY},
 	{ID: 0x85, AddressingMode: ZeroPage, Size: 2, Cycles: 3, PageCycles: 0, Name: "STA", run: _STA},
 	{ID: 0x86, AddressingMode: ZeroPage, Size: 2, Cycles: 3, PageCycles: 0, Name: "STX", run: _STX},
 	{}, // 0x87
 	{ID: 0x88, AddressingMode: Implied, Size: 1, Cycles: 2, PageCycles: 0, Name: "DEY", run: _DEY},
-	{}, // 0x89
+	{ID: 0x89, AddressingMode: Immediate, Size: 2, Cycles: 2, PageCycles: 0, Name: "NOP", run: _NOP},
 	{ID: 0x8A, AddressingMode: Implied, Size: 1, Cycles: 2, PageCycles: 0, Name: "TXA", run: _TXA},
 	{}, // 0x8B
 	{ID: 0x8C, AddressingMode: Absolute, Size: 3, Cycles: 4, PageCycles: 0, Name: "STY", run: _STY},
@@ -235,7 +235,7 @@ var instructions = [256]opcode{
 	{}, // 0xB3
 	{ID: 0xB4, AddressingMode: ZeroPageX, Size: 2, Cycles: 4, PageCycles: 0, Name: "LDY", run: _LDY},
 	{ID: 0xB5, AddressingMode: ZeroPageX, Size: 2, Cycles: 4, PageCycles: 0, Name: "LDA", run: _LDA},
-	{ID: 0xB6, AddressingMode: ZeroPageY, Size: 2, Cycles: 4, PageCycles: 0, Name: "LDA", run: _LDA},
+	{ID: 0xB6, AddressingMode: ZeroPageY, Size: 2, Cycles: 4, PageCycles: 0, Name: "LDX", run: _LDX},
 	{}, // 0xB7
 	{ID: 0xB8, AddressingMode: Implied, Size: 1, Cycles: 2, PageCycles: 0, Name: "CLV", run: _CLV},
 	{ID: 0xB9, AddressingMode: AbsoluteY, Size: 3, Cycles: 4, PageCycles: 1, Name: "LDA", run: _LDA},
@@ -247,7 +247,7 @@ var instructions = [256]opcode{
 	{}, // 0xBF
 	{ID: 0xC0, AddressingMode: Immediate, Size: 2, Cycles: 2, PageCycles: 0, Name: "CPY", run: _CPY},
 	{ID: 0xC1, AddressingMode: IndirectX, Size: 2, Cycles: 6, PageCycles: 0, Name: "CMP", run: _CMP},
-	{}, // 0xC2
+	{ID: 0xC2, AddressingMode: Immediate, Size: 2, Cycles: 2, PageCycles: 0, Name: "NOP", run: _NOP},
 	{}, // 0xC3
 	{ID: 0xC4, AddressingMode: ZeroPage, Size: 2, Cycles: 3, PageCycles: 0, Name: "CPY", run: _CPY},
 	{ID: 0xC5, AddressingMode: ZeroPage, Size: 2, Cycles: 3, PageCycles: 0, Name: "CMP", run: _CMP},
@@ -265,21 +265,21 @@ var instructions = [256]opcode{
 	{ID: 0xD1, AddressingMode: IndirectY, Size: 2, Cycles: 5, PageCycles: 1, Name: "CMP", run: _CMP},
 	{}, // 0xD2
 	{}, // 0xD3
-	{}, // 0xD4
+	{ID: 0xD4, AddressingMode: ZeroPageX, Size: 2, Cycles: 4, PageCycles: 0, Name: "NOP", run: _NOP},
 	{ID: 0xD5, AddressingMode: ZeroPageX, Size: 2, Cycles: 4, PageCycles: 0, Name: "CMP", run: _CMP},
 	{ID: 0xD6, AddressingMode: ZeroPageX, Size: 2, Cycles: 6, PageCycles: 0, Name: "DEC", run: _DEC},
 	{}, // 0xD7
 	{ID: 0xD8, AddressingMode: Implied, Size: 1, Cycles: 2, PageCycles: 0, Name: "CLD", run: _CLD},
 	{ID: 0xD9, AddressingMode: AbsoluteY, Size: 3, Cycles: 4, PageCycles: 1, Name: "CMP", run: _CMP},
-	{}, // 0xDA
+	{ID: 0xDA, AddressingMode: Implied, Size: 1, Cycles: 2, PageCycles: 0, Name: "NOP", run: _NOP},
 	{}, // 0xDB
-	{}, // 0xDC
+	{ID: 0xDC, AddressingMode: Implied, Size: 3, Cycles: 5, PageCycles: 0, Name: "NOP", run: _NOP}, // Something with page crossing; Might need to read the arguments. Ignore for now
 	{ID: 0xDD, AddressingMode: AbsoluteX, Size: 3, Cycles: 4, PageCycles: 1, Name: "CMP", run: _CMP},
 	{ID: 0xDE, AddressingMode: AbsoluteX, Size: 3, Cycles: 7, PageCycles: 0, Name: "DEC", run: _DEC},
 	{}, // 0xDF
 	{ID: 0xE0, AddressingMode: Immediate, Size: 2, Cycles: 2, PageCycles: 0, Name: "CPX", run: _CPX},
 	{ID: 0xE1, AddressingMode: IndirectX, Size: 2, Cycles: 6, PageCycles: 0, Name: "SBC", run: _SBC},
-	{}, // 0xE2
+	{ID: 0xE2, AddressingMode: Immediate, Size: 2, Cycles: 2, PageCycles: 0, Name: "NOP", run: _NOP},
 	{}, // 0xE3
 	{ID: 0xE4, AddressingMode: ZeroPage, Size: 2, Cycles: 3, PageCycles: 0, Name: "CPX", run: _CPX},
 	{ID: 0xE5, AddressingMode: ZeroPage, Size: 2, Cycles: 3, PageCycles: 0, Name: "SBC", run: _SBC},
@@ -297,15 +297,15 @@ var instructions = [256]opcode{
 	{ID: 0xF1, AddressingMode: IndirectY, Size: 2, Cycles: 5, PageCycles: 1, Name: "SBC", run: _SBC},
 	{}, // 0xF2
 	{}, // 0xF3
-	{}, // 0xF4
+	{ID: 0xF4, AddressingMode: ZeroPageX, Size: 2, Cycles: 4, PageCycles: 0, Name: "NOP", run: _NOP},
 	{ID: 0xF5, AddressingMode: ZeroPageX, Size: 2, Cycles: 4, PageCycles: 0, Name: "SBC", run: _SBC},
 	{ID: 0xF6, AddressingMode: ZeroPageX, Size: 2, Cycles: 6, PageCycles: 0, Name: "INC", run: _INC},
 	{}, // 0xF7
 	{ID: 0xF8, AddressingMode: Implied, Size: 1, Cycles: 2, PageCycles: 0, Name: "SED", run: _SED},
 	{ID: 0xF9, AddressingMode: AbsoluteY, Size: 3, Cycles: 4, PageCycles: 1, Name: "SBC", run: _SBC},
-	{}, // 0xFA
+	{ID: 0xFA, AddressingMode: Implied, Size: 1, Cycles: 2, PageCycles: 0, Name: "NOP", run: _NOP},
 	{}, // 0xFB
-	{}, // 0xFC
+	{ID: 0xFC, AddressingMode: Implied, Size: 3, Cycles: 5, PageCycles: 0, Name: "NOP", run: _NOP}, // Something with page crossing; Might need to read the arguments. Ignore for now
 	{ID: 0xFD, AddressingMode: AbsoluteX, Size: 3, Cycles: 4, PageCycles: 1, Name: "SBC", run: _SBC},
 	{ID: 0xFE, AddressingMode: AbsoluteX, Size: 3, Cycles: 7, PageCycles: 0, Name: "INC", run: _INC},
 	{}, // 0xFF
@@ -321,11 +321,11 @@ func (cpu *CPU) getAddress(instruction opcode) (uint16, bool) {
 	case AbsoluteX:
 		readAddress := cpu.Memory.ReadAddress(cpu.PC + 1)
 		address := readAddress + uint16(cpu.X)
-		return address, ((address&0xFF00)-(readAddress&0xFF00) == 0)
+		return address, ((address&0xFF00)-(readAddress&0xFF00) != 0)
 	case AbsoluteY:
 		readAddress := cpu.Memory.ReadAddress(cpu.PC + 1)
 		address := readAddress + uint16(cpu.Y)
-		return address, ((address&0xFF00)-(readAddress&0xFF00) == 0)
+		return address, ((address&0xFF00)-(readAddress&0xFF00) != 0)
 	case ZeroPage:
 		return uint16(cpu.Memory.Read(cpu.PC + 1)), false
 	case ZeroPageX:
@@ -333,25 +333,26 @@ func (cpu *CPU) getAddress(instruction opcode) (uint16, bool) {
 	case ZeroPageY:
 		return uint16(cpu.Memory.Read(cpu.PC+1) + cpu.Y), false
 	case Indirect:
-		return cpu.Memory.ReadAddress(cpu.Memory.ReadAddress(cpu.PC + 1)), false
+		return cpu.Memory.ReadAddressBug(cpu.Memory.ReadAddress(cpu.PC + 1)), false
 	case IndirectX:
-		// TODO: Some bug
-		return cpu.Memory.ReadAddress(uint16(cpu.Memory.Read(cpu.PC+1) + cpu.X)), false
+		return cpu.Memory.ReadAddressBug(uint16(cpu.Memory.Read(cpu.PC+1) + cpu.X)), false
 	case IndirectY:
-		readAddress := cpu.Memory.ReadAddress(uint16(cpu.Memory.Read(cpu.PC + 1)))
+		readAddress := cpu.Memory.ReadAddressBug(uint16(cpu.Memory.Read(cpu.PC + 1)))
 		address := readAddress + uint16(cpu.Y)
-		return address, ((address&0xFF00)-(readAddress&0xFF00) == 0)
+		return address, ((address&0xFF00)-(readAddress&0xFF00) != 0)
 	case Relative:
 		displacement := uint16(cpu.Memory.Read(cpu.PC + 1))
 		address := cpu.PC + 2 + displacement
 		if displacement >= 0x80 {
 			address -= 0x100
 		}
-		return address, ((address&0xFF00)-((cpu.PC+2)&0xFF00) == 0)
+		return address, ((address&0xFF00)-((cpu.PC+2)&0xFF00) != 0)
 	default:
 		return 0x0, false
 	}
 }
+
+var DEBUG bool = false
 
 func (cpu *CPU) Step() (uint64, opcode) {
 	var startingCycles uint64 = cpu.CycleCount
@@ -359,25 +360,28 @@ func (cpu *CPU) Step() (uint64, opcode) {
 	op := cpu.Memory.Read(cpu.PC)
 	instruction := instructions[op]
 	if instruction.run == nil {
-		instruction = instructions[0x0] // BRK
-	}
-
-	instructionBytes := fmt.Sprintf("%2x", cpu.Memory.Read(cpu.PC))
-	for i := 1; i < int(instruction.Size); i++ {
-		instructionBytes += fmt.Sprintf(" %2x", cpu.Memory.Read(cpu.PC+uint16(i)))
-	}
-	if instruction.Size < 3 {
-		instructionBytes += "\t"
-	}
-
-	stack := ""
-	for i := cpu.SP; i <= 0xfd && i < cpu.SP+10; i++ {
-		stack += fmt.Sprintf("%2x ", cpu.Memory.Read(uint16(i)+0x100))
+		instruction = instructions[0x1A] // NOP
 	}
 
 	address, pageCycle := cpu.getAddress(instruction)
 
-	fmt.Printf("%4x\t%v\t%v\tA:%2x X:%2x Y:%2x P:%x SP:%2x ADDR:%4x CYC:%d\tSTK:%v\n", cpu.PC, instructionBytes, instruction.Name, cpu.A, cpu.X, cpu.Y, cpu.P, cpu.SP, address, cpu.CycleCount, stack)
+	if DEBUG {
+		instructionBytes := fmt.Sprintf("%2x", cpu.Memory.Read(cpu.PC))
+		for i := 1; i < int(instruction.Size); i++ {
+			instructionBytes += fmt.Sprintf(" %2x", cpu.Memory.Read(cpu.PC+uint16(i)))
+		}
+		if instruction.Size < 3 {
+			instructionBytes += "\t"
+		}
+
+		stack := ""
+		for i := 1; i < 10 && i+int(cpu.SP) < 0xFE; i++ {
+			stack += fmt.Sprintf("%2x ", cpu.Memory.Read(uint16(i)+uint16(cpu.SP)+1+0x100))
+		}
+
+		fmt.Printf("%4x\t%v\t%v\tA:%2x X:%2x Y:%2x P:%x SP:%2x ADDR:%4x CYC:%d\tSTK:%v\n", cpu.PC, instructionBytes, instruction.Name, cpu.A, cpu.X, cpu.Y, cpu.GetFlags(), cpu.SP, address, cpu.CycleCount, stack)
+
+	}
 
 	cpu.PC += uint16(instruction.Size)
 	cpu.CycleCount += uint64(instruction.Cycles)
@@ -421,6 +425,7 @@ func (cpu *CPU) PowerUp() {
 	cpu.X = 0
 	cpu.Y = 0
 	cpu.SP = 0xFD
+	cpu.CycleCount = 7 // Warming up
 }
 
 // https://wiki.nesdev.org/w/index.php?title=CPU_power_up_state
@@ -451,12 +456,16 @@ func (cpu *CPU) Push(value uint8) {
 }
 
 func (cpu *CPU) PushAddress(value uint16) {
+	cpu.SP--
 	cpu.Memory.WriteAddress(uint16(cpu.SP)+0x100, value)
 	cpu.SP--
 }
 
 func (cpu *CPU) Pop() uint8 {
 	cpu.SP++
+	if cpu.SP > 0xFF {
+		panic("Stack underflow")
+	}
 	return cpu.Memory.Read(uint16(cpu.SP) + 0x100)
 }
 
@@ -465,7 +474,7 @@ func (cpu *CPU) PopAddress() uint16 {
 	if cpu.SP > 0xFF {
 		panic("Stack underflow")
 	}
-	return cpu.Memory.ReadAddress(uint16(cpu.SP) + 0x100)
+	return cpu.Memory.ReadAddress(uint16(cpu.SP-1) + 0x100)
 }
 
 func _ADC(cpu *CPU, addressingMode uint8, address uint16, pageCycle bool) {
@@ -481,7 +490,7 @@ func _ADC(cpu *CPU, addressingMode uint8, address uint16, pageCycle bool) {
 	}
 
 	// Set overflow
-	if ((cpu.A^src)&0x80) == 0 && (cpu.A^uint8(temp)&0x80) != 0 {
+	if ((cpu.A^src)&0x80) == 0 && ((cpu.A^uint8(temp))&0x80) != 0 {
 		cpu.P.V = 1
 	} else {
 		cpu.P.V = 0
@@ -652,9 +661,10 @@ func _CMP(cpu *CPU, addressingMode uint8, address uint16, pageCycle bool) {
 }
 
 func _CPX(cpu *CPU, addressingMode uint8, address uint16, pageCycle bool) {
-	var src uint16 = uint16(cpu.Memory.Read(address))
-	src = uint16(cpu.X) - src
-	if uint16(src) < 0x100 {
+	var src uint8 = cpu.Memory.Read(address)
+
+	src = cpu.X - src
+	if cpu.X >= src {
 		cpu.P.C = 1
 	} else {
 		cpu.P.C = 0
@@ -795,7 +805,7 @@ func _PLA(cpu *CPU, addressingMode uint8, address uint16, pageCycle bool) {
 }
 
 func _PLP(cpu *CPU, addressingMode uint8, address uint16, pageCycle bool) {
-	cpu.SetFlags(cpu.Pop())
+	cpu.SetFlags(cpu.Pop()&0xEF | 0x20)
 }
 
 func _ROL(cpu *CPU, addressingMode uint8, address uint16, pageCycle bool) {
@@ -907,7 +917,7 @@ func _TAX(cpu *CPU, addressingMode uint8, address uint16, pageCycle bool) {
 }
 
 func _TAY(cpu *CPU, addressingMode uint8, address uint16, pageCycle bool) {
-	cpu.Y = cpu.X
+	cpu.Y = cpu.A
 	cpu.setSign(cpu.Y)
 	cpu.setZero(cpu.Y)
 }

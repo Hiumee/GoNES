@@ -1,7 +1,6 @@
 package internals
 
 import (
-	"fmt"
 	"os"
 	"testing"
 )
@@ -31,6 +30,13 @@ func (memoryMock *MemoryMock) WriteAddress(address uint16, value uint16) {
 	memoryMock.Write(address+1, high)
 }
 
+func (memoryMock *MemoryMock) ReadAddressBug(address uint16) uint16 {
+	var low uint16 = uint16(memoryMock.Read(address))
+	var high uint16 = uint16(memoryMock.Read((address+1)&0xFF + address&0xFF00))
+	return low | high<<8
+}
+
+// Used nestest https://github.com/christopherpow/nes-test-roms/blob/master/other/nestest.txt
 func TestCPUInstructions(t *testing.T) {
 	var data []uint8
 	data, err := os.ReadFile("tests/nestest.bin")
@@ -47,22 +53,11 @@ func TestCPUInstructions(t *testing.T) {
 	cpu.Memory = memory
 	cpu.PC = 0xC000
 
-	defer func() {
-		err := recover()
-		if err != nil {
-			fmt.Printf("Panic: %v\n", err)
-		}
-		errorCode := memory.RAM[0x2]
-		errorCode2 := memory.RAM[0x3]
-		if errorCode != 0x0 {
-			t.Error("Error code 0x2:", errorCode)
-		}
-		if errorCode != 0x0 {
-			t.Error("Error code 0x3:", errorCode2)
-		}
-	}()
-
-	for cpu.PC != 0x2000 {
+	for cpu.CycleCount != 14940 {
 		cpu.Step()
+	}
+
+	if cpu.PC != 0xC6C4 || cpu.A != 0x55 || cpu.Y != 0x53 || cpu.GetFlags() != 0x24 || cpu.SP != 0xF9 || cpu.CycleCount != 14940 {
+		t.Error("Failed CPU instructions test")
 	}
 }

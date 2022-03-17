@@ -3,6 +3,7 @@ package internals
 type IMemory interface {
 	Read(addrress uint16) uint8
 	ReadAddress(address uint16) uint16
+	ReadAddressBug(address uint16) uint16
 	Write(address uint16, value uint8)
 	WriteAddress(address uint16, value uint16)
 }
@@ -19,7 +20,8 @@ func (memory *Memory) Read(address uint16) uint8 {
 	case address < 0x4000:
 		return memory.nes.PPU.ReadRegister(0x4000 + address%0x8)
 	case address < 0x4014: // Shouldn't read this
-		return memory.nes.APU.ReadRegister(address)
+		panic("Should not be able to read this")
+		// return memory.nes.APU.ReadRegister(address)
 	case address == 0x4014:
 		return memory.nes.PPU.ReadRegister(address)
 	case address == 0x4015:
@@ -46,7 +48,7 @@ func (memory *Memory) Write(address uint16, value uint8) {
 	case address < 0x2000:
 		memory.nes.RAM[address%0x0800] = value
 	case address < 0x4000:
-		memory.nes.PPU.WriteRegister(0x4000+address%0x08, value)
+		memory.nes.PPU.WriteRegister(0x2000+address%0x08, value)
 	case address < 0x4014:
 		memory.nes.APU.WriteRegister(address, value)
 	case address == 0x4014:
@@ -69,4 +71,10 @@ func (memory *Memory) WriteAddress(address uint16, value uint16) {
 	var high uint8 = uint8(value >> 8)
 	memory.Write(address, low)
 	memory.Write(address+1, high)
+}
+
+func (memory *Memory) ReadAddressBug(address uint16) uint16 {
+	var low uint16 = uint16(memory.Read(address))
+	var high uint16 = uint16(memory.Read((address+1)&0xFF + address&0xFF00))
+	return low | high<<8
 }
