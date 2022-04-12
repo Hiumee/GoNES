@@ -5,32 +5,32 @@ import (
 	"testing"
 )
 
-type MemoryMock struct {
+type BusMock struct {
 	RAM [0x16000]uint8
 }
 
-func (memoryMock *MemoryMock) Read(address uint16) uint8 {
+func (memoryMock *BusMock) Read(address uint16) uint8 {
 	return memoryMock.RAM[address]
 }
 
-func (memoryMock *MemoryMock) ReadAddress(address uint16) uint16 {
+func (memoryMock *BusMock) ReadAddress(address uint16) uint16 {
 	var low uint16 = uint16(memoryMock.Read(address))
 	var high uint16 = uint16(memoryMock.Read(address + 1))
 	return low | high<<8
 }
 
-func (memoryMock *MemoryMock) Write(address uint16, value uint8) {
+func (memoryMock *BusMock) Write(address uint16, value uint8) {
 	memoryMock.RAM[address] = value
 }
 
-func (memoryMock *MemoryMock) WriteAddress(address uint16, value uint16) {
+func (memoryMock *BusMock) WriteAddress(address uint16, value uint16) {
 	var low uint8 = uint8(value & 0xFF)
 	var high uint8 = uint8(value >> 8)
 	memoryMock.Write(address, low)
 	memoryMock.Write(address+1, high)
 }
 
-func (memoryMock *MemoryMock) ReadAddressBug(address uint16) uint16 {
+func (memoryMock *BusMock) ReadAddressBug(address uint16) uint16 {
 	var low uint16 = uint16(memoryMock.Read(address))
 	var high uint16 = uint16(memoryMock.Read((address+1)&0xFF + address&0xFF00))
 	return low | high<<8
@@ -44,17 +44,17 @@ func TestCPUInstructions(t *testing.T) {
 		t.Error("Cannot open test file")
 	}
 
-	memory := &MemoryMock{}
+	memory := &BusMock{}
 	copy(memory.RAM[0x8000:0xC000], data[:0x4000])
 	copy(memory.RAM[0xC000:0x10000], data[:0x4000])
 
 	var cpu *CPU = &CPU{}
 	cpu.PowerUp()
-	cpu.Memory = memory
+	cpu.Bus = memory
 	cpu.PC = 0xC000
 
 	for cpu.CycleCount != 14940 {
-		cpu.Step()
+		cpu.Cycle()
 	}
 
 	if cpu.PC != 0xC6C4 || cpu.A != 0x55 || cpu.Y != 0x53 || cpu.GetFlags() != 0x24 || cpu.SP != 0xF9 || cpu.CycleCount != 14940 {

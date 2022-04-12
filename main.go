@@ -1,8 +1,225 @@
 package main
 
-// import "github.com/hiumee/NES/internals"
+import (
+	"fmt"
+	"log"
+	"runtime"
+	"strings"
+
+	"github.com/go-gl/gl/v4.1-core/gl"
+	"github.com/go-gl/glfw/v3.3/glfw"
+	"github.com/hiumee/NES/internals"
+)
+
+const (
+	vertexShaderSource = `
+    #version 410
+    in vec2 vp;
+	out vec2 texCoo;
+    void main() {
+        gl_Position = vec4(vp.x, vp.y, 0.0, 1.0);
+		texCoo = (vec2(vp.x, -vp.y)+1)/2;
+    }
+` + "\x00"
+
+	fragmentShaderSource = `
+    #version 410
+	in vec2 texCoo;
+    out vec4 frag_colour;
+	uniform sampler2D gameTexture;
+    void main() {
+        frag_colour = texture(gameTexture, texCoo);
+    }
+` + "\x00"
+)
+
+// initGlfw initializes glfw and returns a Window to use.
+func initGlfw() *glfw.Window {
+	if err := glfw.Init(); err != nil {
+		panic(err)
+	}
+
+	glfw.WindowHint(glfw.Resizable, glfw.False)
+	glfw.WindowHint(glfw.ContextVersionMajor, 4) // OR 2
+	glfw.WindowHint(glfw.ContextVersionMinor, 1)
+	glfw.WindowHint(glfw.OpenGLProfile, glfw.OpenGLCoreProfile)
+	glfw.WindowHint(glfw.OpenGLForwardCompatible, glfw.True)
+
+	window, err := glfw.CreateWindow(256*4, 240*4, "NES", nil, nil)
+	if err != nil {
+		panic(err)
+	}
+	window.MakeContextCurrent()
+
+	return window
+}
+
+func initOpenGL() uint32 {
+	if err := gl.Init(); err != nil {
+		panic(err)
+	}
+	version := gl.GoStr(gl.GetString(gl.VERSION))
+	log.Println("OpenGL version", version)
+
+	vertexShader, err := compileShader(vertexShaderSource, gl.VERTEX_SHADER)
+	if err != nil {
+		panic(err)
+	}
+	fragmentShader, err := compileShader(fragmentShaderSource, gl.FRAGMENT_SHADER)
+	if err != nil {
+		panic(err)
+	}
+
+	prog := gl.CreateProgram()
+	gl.AttachShader(prog, vertexShader)
+	gl.AttachShader(prog, fragmentShader)
+	gl.LinkProgram(prog)
+	return prog
+}
+
+var (
+	triangle = []float32{
+		-1, 1, 0, // top left
+		-1, -1, 0, // bottom left
+		1, 1, 0, // top right
+		1, -1, 0, // bottom right
+	}
+)
+
+func makeVao(points []float32) uint32 {
+	var vbo uint32
+	gl.GenBuffers(1, &vbo)
+	gl.BindBuffer(gl.ARRAY_BUFFER, vbo)
+	gl.BufferData(gl.ARRAY_BUFFER, 4*len(points), gl.Ptr(points), gl.STATIC_DRAW)
+
+	var vao uint32
+	gl.GenVertexArrays(1, &vao)
+	gl.BindVertexArray(vao)
+	gl.EnableVertexAttribArray(0)
+	gl.BindBuffer(gl.ARRAY_BUFFER, vbo)
+	gl.VertexAttribPointer(0, 2, gl.FLOAT, false, 4*3, nil)
+
+	return vao
+}
+
+func draw(vao uint32, window *glfw.Window, program uint32) {
+	gl.Clear(gl.COLOR_BUFFER_BIT)
+	gl.UseProgram(program)
+
+	gl.TexImage2D(gl.TEXTURE_2D, 0, gl.RGB, 256, 240, 0, gl.RGB, gl.UNSIGNED_BYTE, gl.Ptr(image_data))
+	gl.DrawArrays(gl.TRIANGLE_STRIP, 0, int32(len(triangle)/3))
+
+	glfw.PollEvents()
+	window.SwapBuffers()
+}
+
+func compileShader(source string, shaderType uint32) (uint32, error) {
+	shader := gl.CreateShader(shaderType)
+
+	csources, free := gl.Strs(source)
+	gl.ShaderSource(shader, 1, csources, nil)
+	free()
+	gl.CompileShader(shader)
+
+	var status int32
+	gl.GetShaderiv(shader, gl.COMPILE_STATUS, &status)
+	if status == gl.FALSE {
+		var logLength int32
+		gl.GetShaderiv(shader, gl.INFO_LOG_LENGTH, &logLength)
+
+		log := strings.Repeat("\x00", int(logLength+1))
+		gl.GetShaderInfoLog(shader, logLength, nil, gl.Str(log))
+
+		return 0, fmt.Errorf("failed to compile %v: %v", source, log)
+	}
+
+	return shader, nil
+}
+
+var image_data []uint8 = make([]uint8, 256*240*3)
 
 func main() {
-	//	nes := internals.NewNES()
+	runtime.LockOSThread()
 
+	window := initGlfw()
+	defer glfw.Terminate()
+
+	program := initOpenGL()
+
+	var texture uint32
+	gl.GenTextures(1, &texture)
+	gl.BindTexture(gl.TEXTURE_2D, texture)
+
+	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT)
+	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT)
+
+	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
+	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
+
+	vao := makeVao(triangle)
+	gl.BindVertexArray(vao)
+
+	nes := internals.NewNES()
+	nes.LoadFile("internals/tests/mario.nes")
+
+	patterns := nes.Cartridge.CHR_ROM
+
+	var (
+		color_pallete = []uint8{
+			0x66, 0x66, 0x66,
+			0xb5, 0x32, 0x20,
+			0xeb, 0x9f, 0x23,
+			0x6c, 0x6e, 0x00,
+		}
+	)
+
+	line := -1
+	for k := 0; k < int(nes.Cartridge.Header.CHR_ROM_size)/16; k++ {
+		pattern := getPattern(patterns, uint(k))
+
+		if k%32 == 0 {
+			line++
+		}
+		for i := 0; i < 8; i++ {
+			for j := 0; j < 8; j++ {
+				color := pattern[i*8+j]
+
+				image_data[((i+line*8)*256+j+8*(k%32))*3] = color_pallete[color*3]
+				image_data[((i+line*8)*256+j+8*(k%32))*3+1] = color_pallete[color*3+1]
+				image_data[((i+line*8)*256+j+8*(k%32))*3+2] = color_pallete[color*3+2]
+			}
+		}
+	}
+
+	for !window.ShouldClose() {
+		draw(vao, window, program)
+	}
+}
+
+func getPattern(patterns []byte, index uint) [64]uint8 {
+	pattern := patterns[index*16 : index*16+16]
+	var pixels [64]byte
+
+	for i := 0; i < 8; i++ {
+		pixels[i*8] = (pattern[i] >> 7) & 1
+		pixels[i*8+1] = (pattern[i] >> 6) & 1
+		pixels[i*8+2] = (pattern[i] >> 5) & 1
+		pixels[i*8+3] = (pattern[i] >> 4) & 1
+		pixels[i*8+4] = (pattern[i] >> 3) & 1
+		pixels[i*8+5] = (pattern[i] >> 2) & 1
+		pixels[i*8+6] = (pattern[i] >> 1) & 1
+		pixels[i*8+7] = (pattern[i] >> 0) & 1
+	}
+	for i := 0; i < 8; i++ {
+		pixels[i*8] |= ((pattern[i+8] >> 7) & 1) << 1
+		pixels[i*8+1] |= ((pattern[i+8] >> 6) & 1) << 1
+		pixels[i*8+2] |= ((pattern[i+8] >> 5) & 1) << 1
+		pixels[i*8+3] |= ((pattern[i+8] >> 4) & 1) << 1
+		pixels[i*8+4] |= ((pattern[i+8] >> 3) & 1) << 1
+		pixels[i*8+5] |= ((pattern[i+8] >> 2) & 1) << 1
+		pixels[i*8+6] |= ((pattern[i+8] >> 1) & 1) << 1
+		pixels[i*8+7] |= ((pattern[i+8] >> 0) & 1) << 1
+	}
+
+	return pixels
 }

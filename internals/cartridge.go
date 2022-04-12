@@ -1,6 +1,21 @@
 package internals
 
+type Header struct {
+	PRG_ROM_size    uint
+	CHR_ROM_size    uint
+	PRG_RAM_size    uint
+	Mirroring       bool
+	PersistentRAM   bool // 0x6000 - 0x7FFF
+	Trainer         bool // 0x7000 - 0x71FF
+	IgnoreMorriring bool
+	Mapper          uint
+	VSUnisystem     bool
+}
+
 type Cartridge struct {
+	Header  Header
+	PRG_ROM []byte
+	CHR_ROM []byte
 }
 
 func (cartridge *Cartridge) Read(address uint16) uint8 {

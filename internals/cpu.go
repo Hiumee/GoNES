@@ -19,7 +19,8 @@ type CPU struct {
 	PC         uint16 // Program counter
 	SP         uint8  // Stack pointer
 	CycleCount uint64
-	Memory     IMemory
+	CycleDelay uint64
+	Bus        IBus
 }
 
 const (
@@ -317,31 +318,31 @@ func (cpu *CPU) getAddress(instruction opcode) (uint16, bool) {
 	case Immediate:
 		return cpu.PC + 1, false
 	case Absolute:
-		return cpu.Memory.ReadAddress(cpu.PC + 1), false
+		return cpu.Bus.ReadAddress(cpu.PC + 1), false
 	case AbsoluteX:
-		readAddress := cpu.Memory.ReadAddress(cpu.PC + 1)
+		readAddress := cpu.Bus.ReadAddress(cpu.PC + 1)
 		address := readAddress + uint16(cpu.X)
 		return address, ((address&0xFF00)-(readAddress&0xFF00) != 0)
 	case AbsoluteY:
-		readAddress := cpu.Memory.ReadAddress(cpu.PC + 1)
+		readAddress := cpu.Bus.ReadAddress(cpu.PC + 1)
 		address := readAddress + uint16(cpu.Y)
 		return address, ((address&0xFF00)-(readAddress&0xFF00) != 0)
 	case ZeroPage:
-		return uint16(cpu.Memory.Read(cpu.PC + 1)), false
+		return uint16(cpu.Bus.Read(cpu.PC + 1)), false
 	case ZeroPageX:
-		return uint16(cpu.Memory.Read(cpu.PC+1) + cpu.X), false
+		return uint16(cpu.Bus.Read(cpu.PC+1) + cpu.X), false
 	case ZeroPageY:
-		return uint16(cpu.Memory.Read(cpu.PC+1) + cpu.Y), false
+		return uint16(cpu.Bus.Read(cpu.PC+1) + cpu.Y), false
 	case Indirect:
-		return cpu.Memory.ReadAddressBug(cpu.Memory.ReadAddress(cpu.PC + 1)), false
+		return cpu.Bus.ReadAddressBug(cpu.Bus.ReadAddress(cpu.PC + 1)), false
 	case IndirectX:
-		return cpu.Memory.ReadAddressBug(uint16(cpu.Memory.Read(cpu.PC+1) + cpu.X)), false
+		return cpu.Bus.ReadAddressBug(uint16(cpu.Bus.Read(cpu.PC+1) + cpu.X)), false
 	case IndirectY:
-		readAddress := cpu.Memory.ReadAddressBug(uint16(cpu.Memory.Read(cpu.PC + 1)))
+		readAddress := cpu.Bus.ReadAddressBug(uint16(cpu.Bus.Read(cpu.PC + 1)))
 		address := readAddress + uint16(cpu.Y)
 		return address, ((address&0xFF00)-(readAddress&0xFF00) != 0)
 	case Relative:
-		displacement := uint16(cpu.Memory.Read(cpu.PC + 1))
+		displacement := uint16(cpu.Bus.Read(cpu.PC + 1))
 		address := cpu.PC + 2 + displacement
 		if displacement >= 0x80 {
 			address -= 0x100
@@ -357,7 +358,7 @@ var DEBUG bool = false
 func (cpu *CPU) Step() (uint64, opcode) {
 	var startingCycles uint64 = cpu.CycleCount
 
-	op := cpu.Memory.Read(cpu.PC)
+	op := cpu.Bus.Read(cpu.PC)
 	instruction := instructions[op]
 	if instruction.run == nil {
 		instruction = instructions[0x1A] // NOP
@@ -366,9 +367,9 @@ func (cpu *CPU) Step() (uint64, opcode) {
 	address, pageCycle := cpu.getAddress(instruction)
 
 	if DEBUG {
-		instructionBytes := fmt.Sprintf("%2x", cpu.Memory.Read(cpu.PC))
+		instructionBytes := fmt.Sprintf("%2x", cpu.Bus.Read(cpu.PC))
 		for i := 1; i < int(instruction.Size); i++ {
-			instructionBytes += fmt.Sprintf(" %2x", cpu.Memory.Read(cpu.PC+uint16(i)))
+			instructionBytes += fmt.Sprintf(" %2x", cpu.Bus.Read(cpu.PC+uint16(i)))
 		}
 		if instruction.Size < 3 {
 			instructionBytes += "\t"
@@ -376,7 +377,7 @@ func (cpu *CPU) Step() (uint64, opcode) {
 
 		stack := ""
 		for i := 1; i < 10 && i+int(cpu.SP) < 0xFE; i++ {
-			stack += fmt.Sprintf("%2x ", cpu.Memory.Read(uint16(i)+uint16(cpu.SP)+1+0x100))
+			stack += fmt.Sprintf("%2x ", cpu.Bus.Read(uint16(i)+uint16(cpu.SP)+1+0x100))
 		}
 
 		fmt.Printf("%4x\t%v\t%v\tA:%2x X:%2x Y:%2x P:%x SP:%2x ADDR:%4x CYC:%d\tSTK:%v\n", cpu.PC, instructionBytes, instruction.Name, cpu.A, cpu.X, cpu.Y, cpu.GetFlags(), cpu.SP, address, cpu.CycleCount, stack)
@@ -392,6 +393,13 @@ func (cpu *CPU) Step() (uint64, opcode) {
 	instruction.run(cpu, instruction.AddressingMode, address, pageCycle)
 
 	return cpu.CycleCount - startingCycles, instruction
+}
+
+func (cpu *CPU) Cycle() {
+	if cpu.CycleDelay == 0 {
+		cpu.CycleDelay, _ = cpu.Step()
+	}
+	cpu.CycleDelay--
 }
 
 func (cpu *CPU) SetFlags(flags uint8) {
@@ -451,13 +459,13 @@ func (cpu *CPU) setSign(value uint8) {
 }
 
 func (cpu *CPU) Push(value uint8) {
-	cpu.Memory.Write(uint16(cpu.SP)+0x100, value)
+	cpu.Bus.Write(uint16(cpu.SP)+0x100, value)
 	cpu.SP--
 }
 
 func (cpu *CPU) PushAddress(value uint16) {
 	cpu.SP--
-	cpu.Memory.WriteAddress(uint16(cpu.SP)+0x100, value)
+	cpu.Bus.WriteAddress(uint16(cpu.SP)+0x100, value)
 	cpu.SP--
 }
 
@@ -466,7 +474,7 @@ func (cpu *CPU) Pop() uint8 {
 	if cpu.SP > 0xFF {
 		panic("Stack underflow")
 	}
-	return cpu.Memory.Read(uint16(cpu.SP) + 0x100)
+	return cpu.Bus.Read(uint16(cpu.SP) + 0x100)
 }
 
 func (cpu *CPU) PopAddress() uint16 {
@@ -474,11 +482,11 @@ func (cpu *CPU) PopAddress() uint16 {
 	if cpu.SP > 0xFF {
 		panic("Stack underflow")
 	}
-	return cpu.Memory.ReadAddress(uint16(cpu.SP-1) + 0x100)
+	return cpu.Bus.ReadAddress(uint16(cpu.SP-1) + 0x100)
 }
 
 func _ADC(cpu *CPU, addressingMode uint8, address uint16, pageCycle bool) {
-	var src uint8 = cpu.Memory.Read(address)
+	var src uint8 = cpu.Bus.Read(address)
 	var temp uint16 = uint16(src) + uint16(cpu.A) + uint16(cpu.P.C)
 	cpu.setSign(uint8(temp))
 	cpu.setZero(uint8(temp))
@@ -500,7 +508,7 @@ func _ADC(cpu *CPU, addressingMode uint8, address uint16, pageCycle bool) {
 }
 
 func _AND(cpu *CPU, addressingMode uint8, address uint16, pageCycle bool) {
-	var src uint8 = cpu.Memory.Read(address)
+	var src uint8 = cpu.Bus.Read(address)
 	cpu.A &= src
 	cpu.setSign(cpu.A)
 	cpu.setZero(cpu.A)
@@ -511,7 +519,7 @@ func _ASL(cpu *CPU, addressingMode uint8, address uint16, pageCycle bool) {
 	if addressingMode == Accumulator {
 		src = cpu.A
 	} else {
-		src = cpu.Memory.Read(address)
+		src = cpu.Bus.Read(address)
 	}
 
 	if src&0x80 != 0 {
@@ -527,7 +535,7 @@ func _ASL(cpu *CPU, addressingMode uint8, address uint16, pageCycle bool) {
 	if addressingMode == Accumulator {
 		cpu.A = src
 	} else {
-		cpu.Memory.Write(address, src)
+		cpu.Bus.Write(address, src)
 	}
 }
 
@@ -562,7 +570,7 @@ func _BEQ(cpu *CPU, addressingMode uint8, address uint16, pageCycle bool) {
 }
 
 func _BIT(cpu *CPU, addressingMode uint8, address uint16, pageCycle bool) {
-	var src uint8 = cpu.Memory.Read(address)
+	var src uint8 = cpu.Bus.Read(address)
 	cpu.setSign(src)
 	cpu.setZero(src & cpu.A)
 
@@ -609,7 +617,7 @@ func _BRK(cpu *CPU, addressingMode uint8, address uint16, pageCycle bool) {
 	// cpu.P.B = 1
 	// cpu.Push(cpu.SP)
 	// cpu.P.I = 1
-	// cpu.PC = cpu.Memory.ReadAddress(0xFFFE)
+	// cpu.PC = cpu.Bus.ReadAddress(0xFFFE)
 }
 
 func _BVC(cpu *CPU, addressingMode uint8, address uint16, pageCycle bool) {
@@ -649,7 +657,7 @@ func _CLV(cpu *CPU, addressingMode uint8, address uint16, pageCycle bool) {
 }
 
 func _CMP(cpu *CPU, addressingMode uint8, address uint16, pageCycle bool) {
-	var src uint16 = uint16(cpu.Memory.Read(address))
+	var src uint16 = uint16(cpu.Bus.Read(address))
 	src = uint16(cpu.A) - src
 	if uint16(src) < 0x100 {
 		cpu.P.C = 1
@@ -661,7 +669,7 @@ func _CMP(cpu *CPU, addressingMode uint8, address uint16, pageCycle bool) {
 }
 
 func _CPX(cpu *CPU, addressingMode uint8, address uint16, pageCycle bool) {
-	var src uint8 = cpu.Memory.Read(address)
+	var src uint8 = cpu.Bus.Read(address)
 
 	src = cpu.X - src
 	if cpu.X >= src {
@@ -674,7 +682,7 @@ func _CPX(cpu *CPU, addressingMode uint8, address uint16, pageCycle bool) {
 }
 
 func _CPY(cpu *CPU, addressingMode uint8, address uint16, pageCycle bool) {
-	var src uint16 = uint16(cpu.Memory.Read(address))
+	var src uint16 = uint16(cpu.Bus.Read(address))
 	src = uint16(cpu.Y) - src
 	if uint16(src) < 0x100 {
 		cpu.P.C = 1
@@ -686,10 +694,10 @@ func _CPY(cpu *CPU, addressingMode uint8, address uint16, pageCycle bool) {
 }
 
 func _DEC(cpu *CPU, addressingMode uint8, address uint16, pageCycle bool) {
-	var src uint8 = cpu.Memory.Read(address) - 1
+	var src uint8 = cpu.Bus.Read(address) - 1
 	cpu.setSign(src)
 	cpu.setZero(src)
-	cpu.Memory.Write(address, src)
+	cpu.Bus.Write(address, src)
 }
 
 func _DEX(cpu *CPU, addressingMode uint8, address uint16, pageCycle bool) {
@@ -705,18 +713,18 @@ func _DEY(cpu *CPU, addressingMode uint8, address uint16, pageCycle bool) {
 }
 
 func _EOR(cpu *CPU, addressingMode uint8, address uint16, pageCycle bool) {
-	var src uint8 = cpu.Memory.Read(address)
+	var src uint8 = cpu.Bus.Read(address)
 	cpu.A ^= src
 	cpu.setSign(cpu.A)
 	cpu.setZero(cpu.A)
 }
 
 func _INC(cpu *CPU, addressingMode uint8, address uint16, pageCycle bool) {
-	var src uint8 = cpu.Memory.Read(address)
+	var src uint8 = cpu.Bus.Read(address)
 	src++
 	cpu.setSign(src)
 	cpu.setZero(src)
-	cpu.Memory.Write(address, src)
+	cpu.Bus.Write(address, src)
 }
 
 func _INX(cpu *CPU, addressingMode uint8, address uint16, pageCycle bool) {
@@ -742,19 +750,19 @@ func _JSR(cpu *CPU, addressingMode uint8, address uint16, pageCycle bool) {
 }
 
 func _LDA(cpu *CPU, addressingMode uint8, address uint16, pageCycle bool) {
-	cpu.A = cpu.Memory.Read(address)
+	cpu.A = cpu.Bus.Read(address)
 	cpu.setSign(cpu.A)
 	cpu.setZero(cpu.A)
 }
 
 func _LDX(cpu *CPU, addressingMode uint8, address uint16, pageCycle bool) {
-	cpu.X = cpu.Memory.Read(address)
+	cpu.X = cpu.Bus.Read(address)
 	cpu.setSign(cpu.X)
 	cpu.setZero(cpu.X)
 }
 
 func _LDY(cpu *CPU, addressingMode uint8, address uint16, pageCycle bool) {
-	cpu.Y = cpu.Memory.Read(address)
+	cpu.Y = cpu.Bus.Read(address)
 	cpu.setSign(cpu.Y)
 	cpu.setZero(cpu.Y)
 }
@@ -764,7 +772,7 @@ func _LSR(cpu *CPU, addressingMode uint8, address uint16, pageCycle bool) {
 	if addressingMode == Accumulator {
 		src = cpu.A
 	} else {
-		src = cpu.Memory.Read(address)
+		src = cpu.Bus.Read(address)
 	}
 
 	cpu.P.C = src & 0x01
@@ -775,7 +783,7 @@ func _LSR(cpu *CPU, addressingMode uint8, address uint16, pageCycle bool) {
 	if addressingMode == Accumulator {
 		cpu.A = src
 	} else {
-		cpu.Memory.Write(address, src)
+		cpu.Bus.Write(address, src)
 	}
 }
 
@@ -784,7 +792,7 @@ func _NOP(cpu *CPU, addressingMode uint8, address uint16, pageCycle bool) {
 }
 
 func _ORA(cpu *CPU, addressingMode uint8, address uint16, pageCycle bool) {
-	cpu.A |= cpu.Memory.Read(address)
+	cpu.A |= cpu.Bus.Read(address)
 	cpu.setSign(cpu.A)
 	cpu.setZero(cpu.A)
 }
@@ -813,7 +821,7 @@ func _ROL(cpu *CPU, addressingMode uint8, address uint16, pageCycle bool) {
 	if addressingMode == Accumulator {
 		src = cpu.A
 	} else {
-		src = cpu.Memory.Read(address)
+		src = cpu.Bus.Read(address)
 	}
 
 	var carry uint8 = (src >> 7) & 1
@@ -828,7 +836,7 @@ func _ROL(cpu *CPU, addressingMode uint8, address uint16, pageCycle bool) {
 	if addressingMode == Accumulator {
 		cpu.A = src
 	} else {
-		cpu.Memory.Write(address, src)
+		cpu.Bus.Write(address, src)
 	}
 }
 
@@ -837,7 +845,7 @@ func _ROR(cpu *CPU, addressingMode uint8, address uint16, pageCycle bool) {
 	if addressingMode == Accumulator {
 		src = cpu.A
 	} else {
-		src = cpu.Memory.Read(address)
+		src = cpu.Bus.Read(address)
 	}
 
 	var carry uint8 = src & 1
@@ -852,7 +860,7 @@ func _ROR(cpu *CPU, addressingMode uint8, address uint16, pageCycle bool) {
 	if addressingMode == Accumulator {
 		cpu.A = src
 	} else {
-		cpu.Memory.Write(address, src)
+		cpu.Bus.Write(address, src)
 	}
 }
 
@@ -866,7 +874,7 @@ func _RTS(cpu *CPU, addressingMode uint8, address uint16, pageCycle bool) {
 }
 
 func _SBC(cpu *CPU, addressingMode uint8, address uint16, pageCycle bool) {
-	var src uint8 = cpu.Memory.Read(address)
+	var src uint8 = cpu.Bus.Read(address)
 	var temp uint16 = uint16(cpu.A) - uint16(src) - 1 + uint16(cpu.P.C)
 	cpu.setSign(uint8(temp))
 	cpu.setZero(uint8(temp))
@@ -899,15 +907,15 @@ func _SEI(cpu *CPU, addressingMode uint8, address uint16, pageCycle bool) {
 }
 
 func _STA(cpu *CPU, addressingMode uint8, address uint16, pageCycle bool) {
-	cpu.Memory.Write(address, cpu.A)
+	cpu.Bus.Write(address, cpu.A)
 }
 
 func _STX(cpu *CPU, addressingMode uint8, address uint16, pageCycle bool) {
-	cpu.Memory.Write(address, cpu.X)
+	cpu.Bus.Write(address, cpu.X)
 }
 
 func _STY(cpu *CPU, addressingMode uint8, address uint16, pageCycle bool) {
-	cpu.Memory.Write(address, cpu.Y)
+	cpu.Bus.Write(address, cpu.Y)
 }
 
 func _TAX(cpu *CPU, addressingMode uint8, address uint16, pageCycle bool) {

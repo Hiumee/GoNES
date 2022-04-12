@@ -1,6 +1,6 @@
 package internals
 
-type IMemory interface {
+type IBus interface {
 	Read(addrress uint16) uint8
 	ReadAddress(address uint16) uint16
 	ReadAddressBug(address uint16) uint16
@@ -8,12 +8,12 @@ type IMemory interface {
 	WriteAddress(address uint16, value uint16)
 }
 
-type Memory struct {
+type Bus struct {
 	nes *NES
 }
 
 // https://wiki.nesdev.org/w/index.php?title=CPU_memory_map
-func (memory *Memory) Read(address uint16) uint8 {
+func (memory *Bus) Read(address uint16) uint8 {
 	switch {
 	case address < 0x2000:
 		return memory.nes.RAM[address%0x0800]
@@ -37,13 +37,13 @@ func (memory *Memory) Read(address uint16) uint8 {
 	}
 }
 
-func (memory *Memory) ReadAddress(address uint16) uint16 {
+func (memory *Bus) ReadAddress(address uint16) uint16 {
 	var low uint16 = uint16(memory.Read(address))
 	var high uint16 = uint16(memory.Read(address + 1))
 	return low | high<<8
 }
 
-func (memory *Memory) Write(address uint16, value uint8) {
+func (memory *Bus) Write(address uint16, value uint8) {
 	switch {
 	case address < 0x2000:
 		memory.nes.RAM[address%0x0800] = value
@@ -66,14 +66,14 @@ func (memory *Memory) Write(address uint16, value uint8) {
 	}
 }
 
-func (memory *Memory) WriteAddress(address uint16, value uint16) {
+func (memory *Bus) WriteAddress(address uint16, value uint16) {
 	var low uint8 = uint8(value & 0xFF)
 	var high uint8 = uint8(value >> 8)
 	memory.Write(address, low)
 	memory.Write(address+1, high)
 }
 
-func (memory *Memory) ReadAddressBug(address uint16) uint16 {
+func (memory *Bus) ReadAddressBug(address uint16) uint16 {
 	var low uint16 = uint16(memory.Read(address))
 	var high uint16 = uint16(memory.Read((address+1)&0xFF + address&0xFF00))
 	return low | high<<8
