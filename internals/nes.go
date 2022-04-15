@@ -25,6 +25,9 @@ func NewNES() *NES {
 	nes.CPU = cpu
 	nes.Cartridge = &Cartridge{}
 
+	nes.CPU.Reset()
+	nes.PPU.Initialize()
+
 	return &nes
 }
 
@@ -78,12 +81,23 @@ func (nes *NES) LoadFile(filename string) {
 	pointer += nes.Cartridge.Header.PRG_ROM_size
 	memcpy(nes.Cartridge.CHR_ROM, data[pointer:(pointer+nes.Cartridge.Header.CHR_ROM_size)], nes.Cartridge.Header.CHR_ROM_size)
 	pointer += nes.Cartridge.Header.CHR_ROM_size
+
+	// Initialize/Reset components
+	nes.CPU.PowerUp()
+	// TODO: APU, PPU, Controllers?, RAM?
+	//nes.APU.Reset()
+	//nes.PPU.Reset()
 }
 
 func (nes *NES) Step() uint64 {
 	// TODO: step all components
 	var cycles uint64
-	cycles, _ = nes.CPU.Step()
+
+	// For each PPU cycle, there are 3 CPU cycles at the same time
+	nes.CPU.Cycle()
+	nes.CPU.Cycle()
+	nes.CPU.Cycle()
+	nes.PPU.Cycle()
 
 	return cycles
 }

@@ -485,6 +485,8 @@ func (cpu *CPU) PopAddress() uint16 {
 	return cpu.Bus.ReadAddress(uint16(cpu.SP-1) + 0x100)
 }
 
+// TODO: Implement interrupts
+
 func _ADC(cpu *CPU, addressingMode uint8, address uint16, pageCycle bool) {
 	var src uint8 = cpu.Bus.Read(address)
 	var temp uint16 = uint16(src) + uint16(cpu.A) + uint16(cpu.P.C)
