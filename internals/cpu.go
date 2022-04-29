@@ -2,6 +2,13 @@ package internals
 
 import "fmt"
 
+const (
+	_ = iota
+	INTERRUPTS_NONE
+	INTERRUPTS_NMI
+	INTERRUPTS_IRQ
+)
+
 type CPU struct {
 	A uint8    // Accumulator
 	X uint8    // X index
@@ -20,6 +27,7 @@ type CPU struct {
 	SP         uint8  // Stack pointer
 	CycleCount uint64
 	CycleDelay uint64
+	Interrupt  uint32
 	Bus        IBus
 }
 
@@ -397,7 +405,18 @@ func (cpu *CPU) Step() (uint64, opcode) {
 
 func (cpu *CPU) Cycle() {
 	if cpu.CycleDelay == 0 {
-		cpu.CycleDelay, _ = cpu.Step()
+		switch cpu.Interrupt {
+		case INTERRUPTS_NONE:
+			cpu.CycleDelay, _ = cpu.Step()
+		case INTERRUPTS_NMI:
+			cpu._NMI()
+			cpu.Interrupt = INTERRUPTS_NONE
+			cpu.CycleDelay = 7
+		case INTERRUPTS_IRQ:
+			cpu._IRQ()
+			cpu.Interrupt = INTERRUPTS_NONE
+			cpu.CycleDelay = 7
+		}
 	}
 	cpu.CycleDelay--
 }
@@ -434,12 +453,16 @@ func (cpu *CPU) PowerUp() {
 	cpu.Y = 0
 	cpu.SP = 0xFD
 	cpu.CycleCount = 7 // Warming up
+
+	cpu.Interrupt = INTERRUPTS_NONE
 }
 
 // https://wiki.nesdev.org/w/index.php?title=CPU_power_up_state
 func (cpu *CPU) Reset() {
 	cpu.SP = cpu.SP - 3
 	cpu.P.I = 1
+
+	cpu.Interrupt = INTERRUPTS_NONE
 }
 
 func (cpu *CPU) setZero(value uint8) {
@@ -485,7 +508,31 @@ func (cpu *CPU) PopAddress() uint16 {
 	return cpu.Bus.ReadAddress(uint16(cpu.SP-1) + 0x100)
 }
 
-// TODO: Implement interrupts
+func (cpu *CPU) InterruptNMI() {
+	cpu.Interrupt = INTERRUPTS_NMI
+}
+
+func (cpu *CPU) InterruptIRQ() {
+	if cpu.P.I == 0 {
+		cpu.Interrupt = INTERRUPTS_IRQ
+	}
+}
+
+func (cpu *CPU) _NMI() {
+	cpu.PushAddress(cpu.PC)
+	cpu.Push(cpu.GetFlags())
+	cpu.PC = cpu.Bus.ReadAddress(0xFFFA)
+	cpu.P.I = 1
+	cpu.CycleCount += 7
+}
+
+func (cpu *CPU) _IRQ() {
+	cpu.PushAddress(cpu.PC)
+	cpu.Push(cpu.GetFlags())
+	cpu.PC = cpu.Bus.ReadAddress(0xFFFE)
+	cpu.P.I = 1
+	cpu.CycleCount += 7
+}
 
 func _ADC(cpu *CPU, addressingMode uint8, address uint16, pageCycle bool) {
 	var src uint8 = cpu.Bus.Read(address)

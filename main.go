@@ -27,8 +27,10 @@ const (
 	in vec2 texCoo;
     out vec4 frag_colour;
 	uniform sampler2D gameTexture;
+	uniform sampler1D palette;
     void main() {
-        frag_colour = texture(gameTexture, texCoo);
+		float col = texture(gameTexture, texCoo).r*4.0f;
+		frag_colour = texture(palette, col);
     }
 ` + "\x00"
 )
@@ -106,7 +108,7 @@ func draw(vao uint32, window *glfw.Window, program uint32) {
 	gl.Clear(gl.COLOR_BUFFER_BIT)
 	gl.UseProgram(program)
 
-	gl.TexImage2D(gl.TEXTURE_2D, 0, gl.RGB, 256, 240, 0, gl.RGB, gl.UNSIGNED_BYTE, gl.Ptr(image_data))
+	gl.TexImage2D(gl.TEXTURE_2D, 0, gl.R8, 256, 240, 0, gl.RED, gl.UNSIGNED_BYTE, gl.Ptr(image_data))
 	gl.DrawArrays(gl.TRIANGLE_STRIP, 0, int32(len(triangle)/3))
 
 	glfw.PollEvents()
@@ -136,7 +138,7 @@ func compileShader(source string, shaderType uint32) (uint32, error) {
 	return shader, nil
 }
 
-var image_data []uint8 = make([]uint8, 256*240*3)
+var image_data []uint8 = make([]uint8, 256*240)
 
 func main() {
 	runtime.LockOSThread()
@@ -145,6 +147,18 @@ func main() {
 	defer glfw.Terminate()
 
 	program := initOpenGL()
+
+	var color_palette []uint8 = []uint8{0x00, 0x16, 0x27, 0x18}
+	var color_palette_texture uint32
+
+	gl.GenTextures(1, &color_palette_texture)
+	gl.BindTexture(gl.TEXTURE_1D, color_palette_texture)
+
+	gl.TexParameteri(gl.TEXTURE_1D, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
+	gl.TexParameteri(gl.TEXTURE_1D, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
+	gl.TexParameteri(gl.TEXTURE_1D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
+
+	gl.TexImage1D(gl.TEXTURE_1D, 0, gl.RGB, 64, 0, gl.RGB, gl.UNSIGNED_BYTE, gl.Ptr(internals.COLOR_PALETTE))
 
 	var texture uint32
 	gl.GenTextures(1, &texture)
@@ -164,15 +178,6 @@ func main() {
 
 	patterns := nes.Cartridge.CHR_ROM
 
-	var (
-		color_pallete = []uint8{
-			0x66, 0x66, 0x66,
-			0xb5, 0x32, 0x20,
-			0xeb, 0x9f, 0x23,
-			0x6c, 0x6e, 0x00,
-		}
-	)
-
 	line := -1
 	for k := 0; k < int(nes.Cartridge.Header.CHR_ROM_size)/16; k++ {
 		pattern := getPattern(patterns, uint(k))
@@ -184,14 +189,16 @@ func main() {
 			for j := 0; j < 8; j++ {
 				color := pattern[i*8+j]
 
-				image_data[((i+line*8)*256+j+8*(k%32))*3] = color_pallete[color*3]
-				image_data[((i+line*8)*256+j+8*(k%32))*3+1] = color_pallete[color*3+1]
-				image_data[((i+line*8)*256+j+8*(k%32))*3+2] = color_pallete[color*3+2]
+				image_data[(i+line*8)*256+j+8*(k%32)] = color_palette[color]
 			}
 		}
 	}
 
+	// Main loop
 	for !window.ShouldClose() {
+		if nes.Cartridge.Loaded {
+			//nes.Step()
+		}
 		draw(vao, window, program)
 	}
 }

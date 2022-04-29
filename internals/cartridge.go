@@ -13,6 +13,7 @@ type Header struct {
 }
 
 type Cartridge struct {
+	Loaded  bool
 	Header  Header
 	PRG_ROM []byte
 	CHR_ROM []byte

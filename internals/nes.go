@@ -19,14 +19,15 @@ func NewNES() *NES {
 	var nes NES
 	var bus *Bus = &Bus{}
 	var cpu *CPU = &CPU{}
+	var ppu *PPU = &PPU{}
 	cpu.PowerUp()
 	bus.nes = &nes
 	cpu.Bus = bus
 	nes.CPU = cpu
+	nes.PPU = ppu
 	nes.Cartridge = &Cartridge{}
 
-	nes.CPU.Reset()
-	nes.PPU.Initialize()
+	nes.Initialize()
 
 	return &nes
 }
@@ -75,6 +76,8 @@ func (nes *NES) LoadFile(filename string) {
 	nes.Cartridge.PRG_ROM = make([]byte, nes.Cartridge.Header.PRG_ROM_size)
 	nes.Cartridge.CHR_ROM = make([]byte, nes.Cartridge.Header.CHR_ROM_size)
 
+	nes.Cartridge.Loaded = true
+
 	var pointer uint = 16
 	// TODO: Trainer?
 	memcpy(nes.Cartridge.PRG_ROM, data[pointer:(pointer+nes.Cartridge.Header.PRG_ROM_size)], nes.Cartridge.Header.PRG_ROM_size)
@@ -82,11 +85,13 @@ func (nes *NES) LoadFile(filename string) {
 	memcpy(nes.Cartridge.CHR_ROM, data[pointer:(pointer+nes.Cartridge.Header.CHR_ROM_size)], nes.Cartridge.Header.CHR_ROM_size)
 	pointer += nes.Cartridge.Header.CHR_ROM_size
 
-	// Initialize/Reset components
+	nes.Initialize()
+}
+
+func (nes *NES) Initialize() {
 	nes.CPU.PowerUp()
-	// TODO: APU, PPU, Controllers?, RAM?
-	//nes.APU.Reset()
-	//nes.PPU.Reset()
+	nes.PPU.Initialize()
+	//nes.APU.Initialize()
 }
 
 func (nes *NES) Step() uint64 {
