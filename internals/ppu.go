@@ -3,6 +3,7 @@ package internals
 var COLOR_PALETTE []uint8 = []uint8{84, 84, 84, 0, 30, 116, 8, 16, 144, 48, 0, 136, 68, 0, 100, 92, 0, 48, 84, 4, 0, 60, 24, 0, 32, 42, 0, 8, 58, 0, 0, 64, 0, 0, 60, 0, 0, 50, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 152, 150, 152, 8, 76, 196, 48, 50, 236, 92, 30, 228, 136, 20, 176, 160, 20, 100, 152, 34, 32, 120, 60, 0, 84, 90, 0, 40, 114, 0, 8, 124, 0, 0, 118, 40, 0, 102, 120, 0, 0, 0, 0, 0, 0, 0, 0, 0, 236, 238, 236, 76, 154, 236, 120, 124, 236, 176, 98, 236, 228, 84, 236, 236, 88, 180, 236, 106, 100, 212, 136, 32, 160, 170, 0, 116, 196, 0, 76, 208, 32, 56, 204, 108, 56, 180, 204, 60, 60, 60, 0, 0, 0, 0, 0, 0, 236, 238, 236, 168, 204, 236, 188, 188, 236, 212, 178, 236, 236, 174, 236, 236, 174, 212, 236, 180, 176, 228, 196, 144, 204, 210, 120, 180, 222, 120, 168, 226, 144, 152, 226, 180, 160, 214, 228, 160, 162, 160, 0, 0, 0, 0, 0, 0}
 
 type PPU struct {
+	Bus       *Bus
 	ImageData []uint8
 	Registers PPURegisters
 
@@ -10,9 +11,11 @@ type PPU struct {
 	FrameCount uint64
 	Line       uint64
 
-	PaletteStorage [32]uint8
-	OAMData        [256]uint8
-	OAMAddr        uint16
+	Nametables     [4 * 0x400]uint8
+	PaletteStorage [0x20]uint8
+	OAMData        [256]uint8 // 64 entries of 4 bytes: y, tile, attributes, x; in this order
+	OAMAddr        uint8
+	PPUAddr        uint16
 }
 
 type PPURegisters struct { // TODO: Update LaTeX file with the write/read restrictions
@@ -60,7 +63,6 @@ type PPUSTATUSRegister struct {
 }
 
 type OAMADDRRegister struct {
-	OAMAddress uint16
 }
 
 type OAMDATARegister struct {
@@ -81,8 +83,10 @@ type OAMDMARegister struct {
 }
 
 func (ppu *PPU) Initialize() {
-	ppu.ImageData = make([]uint8, 256*240*3)
+	ppu.ImageData = make([]uint8, 256*240)
 	ppu.Registers.PPUCTRL.IgnoreWritesCounter = 30_000
+	ppu.Registers.PPUADDR_LeastSignificantByte = false
+	ppu.Registers.PPUSCROLL_Y = false
 	ppu.CycleCount = 340
 	ppu.FrameCount = 0
 	ppu.Line = 240
@@ -154,10 +158,10 @@ func (ppu *PPU) WriteRegister(address uint16, value uint8) {
 	case 0x2002:
 		panic("Not writable")
 	case 0x2003:
-		ppu.Registers.OAMADDR.OAMAddress = uint16(value)
+		ppu.OAMAddr = value
 	case 0x2004:
-		panic("To implement")
-		ppu.Registers.OAMADDR.OAMAddress++
+		ppu.OAMData[ppu.OAMAddr] = value
+		ppu.OAMAddr++
 	case 0x2005:
 		if ppu.Registers.PPUSCROLL_Y {
 			ppu.Registers.PPUSCROLL.Y = uint8(value)
@@ -166,11 +170,27 @@ func (ppu *PPU) WriteRegister(address uint16, value uint8) {
 		}
 		ppu.Registers.PPUSCROLL_Y = !ppu.Registers.PPUSCROLL_Y
 	case 0x2006:
-		panic("Not implementd")
+		if ppu.Registers.PPUADDR_LeastSignificantByte {
+			ppu.PPUAddr = (ppu.PPUAddr & 0xFF00) | uint16(value)
+		} else {
+			ppu.PPUAddr = (ppu.PPUAddr & 0x00FF) | (uint16(value) << 8)
+		}
+		ppu.Registers.PPUADDR_LeastSignificantByte = !ppu.Registers.PPUADDR_LeastSignificantByte
 	case 0x2007:
 		panic("Not implemented")
 	case 0x4014:
-		panic("Not implemented")
+		page := value
+		starting_address := uint16(page) << 8
+
+		for i := 0; i < 256; i++ {
+			ppu.OAMData[i] = ppu.Bus.Read(starting_address + uint16(i))
+		}
+
+		ppu.Bus.nes.CPU.CycleCount += 513
+		if ppu.Bus.nes.CPU.CycleCount%2 == 1 {
+			ppu.Bus.nes.CPU.CycleCount++
+		}
+		ppu.CycleCount += 171
 	default:
 		panic("Invalid PPU register")
 	}

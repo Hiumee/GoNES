@@ -23,6 +23,7 @@ func NewNES() *NES {
 	cpu.PowerUp()
 	bus.nes = &nes
 	cpu.Bus = bus
+	ppu.Bus = bus
 	nes.CPU = cpu
 	nes.PPU = ppu
 	nes.Cartridge = &Cartridge{}

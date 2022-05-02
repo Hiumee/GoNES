@@ -17,12 +17,27 @@ type Cartridge struct {
 	Header  Header
 	PRG_ROM []byte
 	CHR_ROM []byte
+	RAM     [0x2000]byte
 }
 
 func (cartridge *Cartridge) Read(address uint16) uint8 {
-	panic("Not implemented")
+	switch {
+	case address < 0x2000: // Used for the PPU bus
+		return cartridge.CHR_ROM[address]
+	case address < 0x8000: // Used for the CPU bus
+		return cartridge.RAM[address-0x6000]
+	case address < 0xC000: // Used for the CPU bus
+		return cartridge.PRG_ROM[address-0x8000]
+	default:
+		return 0
+	}
 }
 
 func (cartridge *Cartridge) Write(address uint16, value uint8) {
-	panic("Not implemented")
+	switch {
+	case address < 0x2000: // Used for the PPU bus
+		cartridge.CHR_ROM[address] = value
+	case address < 0x8000: // Used for the CPU bus
+		cartridge.RAM[address-0x6000] = value
+	}
 }
