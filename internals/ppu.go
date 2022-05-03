@@ -16,6 +16,7 @@ type PPU struct {
 	OAMData        [256]uint8 // 64 entries of 4 bytes: y, tile, attributes, x; in this order
 	OAMAddr        uint8
 	PPUAddr        uint16
+	ReadData       uint8
 }
 
 type PPURegisters struct { // TODO: Update LaTeX file with the write/read restrictions
@@ -92,6 +93,14 @@ func (ppu *PPU) Initialize() {
 	ppu.Line = 240
 }
 
+func (ppu *PPU) IncementPPUAddr() {
+	if ppu.Registers.PPUCTRL.VRAMIncrement {
+		ppu.PPUAddr += 32
+	} else {
+		ppu.PPUAddr++
+	}
+}
+
 func (ppu *PPU) ReadRegister(address uint16) uint8 {
 	switch address {
 	case 0x2000:
@@ -113,18 +122,28 @@ func (ppu *PPU) ReadRegister(address uint16) uint8 {
 	case 0x2003:
 		panic("OAMADDR register is write only")
 	case 0x2004:
-		panic("To implement")
+		return ppu.OAMData[ppu.OAMAddr]
 	case 0x2005:
 		panic("PPUSCROLL register is write only")
 	case 0x2006:
 		panic("PPUADDR register is write only")
 	case 0x2007:
-		panic("To implement")
+		switch {
+		case ppu.PPUAddr < 0x2000: // pattern tables, on the cartridge
+			ppu.ReadData = ppu.Bus.nes.Cartridge.CHR_ROM[ppu.PPUAddr]
+			return ppu.ReadData
+		case ppu.PPUAddr < 0x3F00: // name tables
+			ppu.ReadData = ppu.Nametables[(ppu.PPUAddr-0x2000)%0x1000]
+			return ppu.ReadData
+		case ppu.PPUAddr < 0x4000: // palette
+			ppu.ReadData = ppu.PaletteStorage[(ppu.PPUAddr-0x3F00)%0x20]
+			return ppu.ReadData
+		}
+		ppu.IncementPPUAddr()
 	case 0x4014:
 		panic("OAMDMA register is write only")
-	default:
-		return 0
 	}
+	return 0
 }
 
 func (ppu *PPU) WriteRegister(address uint16, value uint8) {
@@ -177,7 +196,16 @@ func (ppu *PPU) WriteRegister(address uint16, value uint8) {
 		}
 		ppu.Registers.PPUADDR_LeastSignificantByte = !ppu.Registers.PPUADDR_LeastSignificantByte
 	case 0x2007:
-		panic("Not implemented")
+		switch {
+		case ppu.PPUAddr < 0x2000: // pattern tables, on the cartridge
+			ppu.Bus.nes.Cartridge.Write(ppu.PPUAddr, value)
+		case ppu.PPUAddr < 0x3F00: // name tables
+			//TODO: Mirroring to be implemented
+			ppu.Nametables[ppu.Registers.PPUCTRL.NametableBase+(ppu.PPUAddr-0x2000)%0x1000] = value
+		case ppu.PPUAddr < 0x4000: // palette
+			ppu.PaletteStorage[(ppu.PPUAddr-0x3F00)%0x20] = value
+		}
+		ppu.IncementPPUAddr()
 	case 0x4014:
 		page := value
 		starting_address := uint16(page) << 8
@@ -196,6 +224,10 @@ func (ppu *PPU) WriteRegister(address uint16, value uint8) {
 	}
 }
 
-func (ppu *PPU) Cycle() {
+func (ppu *PPU) VBlank() {
+	panic("Not implemented")
+}
 
+func (ppu *PPU) Cycle() {
+	panic("Not implemented")
 }
