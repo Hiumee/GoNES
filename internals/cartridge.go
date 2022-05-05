@@ -26,8 +26,8 @@ func (cartridge *Cartridge) Read(address uint16) uint8 {
 		return cartridge.CHR_ROM[address]
 	case address < 0x8000: // Used for the CPU bus
 		return cartridge.RAM[address-0x6000]
-	case address < 0xC000: // Used for the CPU bus
-		return cartridge.PRG_ROM[address-0x8000]
+	case address >= 0x8000: // Used for the CPU bus
+		return cartridge.PRG_ROM[(address-0x8000)%uint16(len(cartridge.PRG_ROM))]
 	default:
 		return 0
 	}

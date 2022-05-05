@@ -20,15 +20,12 @@ func NewNES() *NES {
 	var bus *Bus = &Bus{}
 	var cpu *CPU = &CPU{}
 	var ppu *PPU = &PPU{}
-	cpu.PowerUp()
 	bus.nes = &nes
 	cpu.Bus = bus
 	ppu.Bus = bus
 	nes.CPU = cpu
 	nes.PPU = ppu
 	nes.Cartridge = &Cartridge{}
-
-	nes.Initialize()
 
 	return &nes
 }

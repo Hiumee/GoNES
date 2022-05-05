@@ -28,7 +28,7 @@ type PPURegisters struct { // TODO: Update LaTeX file with the write/read restri
 	PPUSCROLL PPUSCROLLRegister // 0x2005 Write x2 only
 	PPUADDR   PPUADDRRegister   // 0x2006 Write x2 only
 	PPUDATA   PPUDATARegister   // 0x2007 Read/Write
-	OAMDMA    OAMDMARegister    // 0x4014 Read/Write
+	OAMDMA    OAMDMARegister    // 0x4014 Write only
 
 	PPUSCROLL_Y                  bool // The next write to PPUSCROLL will be the Y scroll value
 	PPUADDR_LeastSignificantByte bool // The next write to PPUADDR will be the least significant byte of the address

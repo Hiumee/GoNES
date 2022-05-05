@@ -58,6 +58,8 @@ type opcode struct {
 	Name           string
 }
 
+//
+
 // Missing illegal opcodes (undocumented) - https://www.nesdev.com/undocumented_opcodes.txt
 // http://www.6502.org/tutorials/6502opcodes.html#BRA
 // https://www.nesdev.com/6502.txt
@@ -448,6 +450,7 @@ func (cpu *CPU) GetFlags() uint8 {
 // https://wiki.nesdev.org/w/index.php?title=CPU_power_up_state
 func (cpu *CPU) PowerUp() {
 	cpu.SetFlags(0x34)
+	cpu.PC = cpu.Bus.ReadAddress(0xFFFC)
 	cpu.A = 0
 	cpu.X = 0
 	cpu.Y = 0
@@ -459,6 +462,7 @@ func (cpu *CPU) PowerUp() {
 
 // https://wiki.nesdev.org/w/index.php?title=CPU_power_up_state
 func (cpu *CPU) Reset() {
+	cpu.PC = cpu.Bus.ReadAddress(0xFFFC)
 	cpu.SP = cpu.SP - 3
 	cpu.P.I = 1
 
@@ -661,12 +665,12 @@ func _BPL(cpu *CPU, addressingMode uint8, address uint16, pageCycle bool) {
 }
 
 func _BRK(cpu *CPU, addressingMode uint8, address uint16, pageCycle bool) {
-	// cpu.PC++
-	// cpu.PushAddress(cpu.PC)
-	// cpu.P.B = 1
-	// cpu.Push(cpu.SP)
-	// cpu.P.I = 1
-	// cpu.PC = cpu.Bus.ReadAddress(0xFFFE)
+	cpu.PC++
+	cpu.PushAddress(cpu.PC)
+	cpu.P.B = 1
+	cpu.Push(cpu.SP)
+	cpu.P.I = 1
+	cpu.PC = cpu.Bus.ReadAddress(0xFFFE)
 }
 
 func _BVC(cpu *CPU, addressingMode uint8, address uint16, pageCycle bool) {
