@@ -20,6 +20,7 @@ func NewNES() *NES {
 	var bus *Bus = &Bus{}
 	var cpu *CPU = &CPU{}
 	var ppu *PPU = &PPU{}
+	nes.Bus = bus
 	bus.nes = &nes
 	cpu.Bus = bus
 	ppu.Bus = bus

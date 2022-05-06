@@ -49,15 +49,36 @@ func TestCPUInstructions(t *testing.T) {
 	copy(memory.RAM[0xC000:0x10000], data[:0x4000])
 
 	var cpu *CPU = &CPU{}
-	cpu.PowerUp()
 	cpu.Bus = memory
+	cpu.PowerUp()
 	cpu.PC = 0xC000
 
-	for cpu.CycleCount != 14940 {
+	for cpu.CycleCount < 14940 {
 		cpu.Cycle()
 	}
 
-	if cpu.PC != 0xC6C4 || cpu.A != 0x55 || cpu.Y != 0x53 || cpu.GetFlags() != 0x24 || cpu.SP != 0xF9 || cpu.CycleCount != 14940 {
-		t.Error("Failed CPU instructions test")
+	errorCode1 := cpu.Bus.Read(0x2)
+	errorCode2 := cpu.Bus.Read(0x3)
+
+	if cpu.PC != 0xC6C4 || cpu.A != 0x55 || cpu.Y != 0x53 || cpu.GetFlags() != 0x24 || cpu.SP != 0xF9 || cpu.CycleCount != 14940 || errorCode1 != 0 || errorCode2 != 0 {
+		t.Error("Failed CPU instructions test. Fail codes: ", errorCode1, errorCode2)
+	}
+}
+
+func TestNonMockCPUInstructions(t *testing.T) {
+	nes := NewNES()
+	nes.LoadFile("tests/nestest.nes")
+
+	nes.CPU.PC = 0xC000
+
+	for nes.CPU.CycleCount < 14940 {
+		nes.CPU.Cycle()
+	}
+
+	errorCode1 := nes.Bus.Read(0x2)
+	errorCode2 := nes.Bus.Read(0x3)
+
+	if nes.CPU.PC != 0xC6C4 || nes.CPU.A != 0x55 || nes.CPU.Y != 0x53 || nes.CPU.GetFlags() != 0x24 || nes.CPU.SP != 0xF9 || nes.CPU.CycleCount != 14940 || errorCode1 != 0 || errorCode2 != 0 {
+		t.Error("Failed CPU instructions test. Fail codes: ", errorCode1, errorCode2)
 	}
 }

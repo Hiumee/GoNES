@@ -1,9 +1,11 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"log"
 	"runtime"
+	"strconv"
 	"strings"
 
 	"github.com/go-gl/gl/v4.1-core/gl"
@@ -140,7 +142,22 @@ func compileShader(source string, shaderType uint32) (uint32, error) {
 
 var image_data []uint8 = make([]uint8, 256*240)
 
+var ROMFile = flag.String("file", "", "ROM file to load")
+var PPUViewer = flag.Bool("ppu", false, "Show PPU viewer")
+var Palette = flag.String("palette", "00,12,24,2A", "Palette information to use. Must be 4 hexadecimal representation of colors separated by commas (0x00-0x3F)")
+
 func main() {
+	flag.StringVar(ROMFile, "f", "", "alias for `file`")
+	flag.BoolVar(PPUViewer, "p", false, "alias for `ppu`")
+	flag.StringVar(Palette, "l", "00,12,24,2A", "alias for `palette`")
+
+	flag.Parse()
+
+	if *ROMFile == "" {
+		flag.Usage()
+		return
+	}
+
 	runtime.LockOSThread()
 
 	window := initGlfw()
@@ -148,7 +165,16 @@ func main() {
 
 	program := initOpenGL()
 
-	var color_palette []uint8 = []uint8{0x00, 0x16, 0x27, 0x18}
+	hexColors := strings.Split(*Palette, ",")
+	if len(hexColors) != 4 {
+		log.Fatal("Invalid palette. Must be 4 hexadecimal representation of colors separated by commas (0x00-0x3F). Default: \"00,12,24,2A\". Provided value: ", *Palette)
+	}
+	var color_palette []uint8 = make([]uint8, 4)
+	for i, hexColor := range hexColors {
+		color, _ := strconv.ParseUint(hexColor, 16, 8)
+		color_palette[i] = uint8(color)
+	}
+
 	var color_palette_texture uint32
 
 	gl.GenTextures(1, &color_palette_texture)
@@ -174,7 +200,7 @@ func main() {
 	gl.BindVertexArray(vao)
 
 	nes := internals.NewNES()
-	nes.LoadFile("internals/tests/mario.nes")
+	nes.LoadFile(*ROMFile)
 
 	patterns := nes.Cartridge.CHR_ROM
 
