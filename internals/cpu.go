@@ -1,6 +1,10 @@
 package internals
 
-import "fmt"
+import (
+	"bufio"
+	"fmt"
+	"os"
+)
 
 const (
 	_ = iota
@@ -363,7 +367,7 @@ func (cpu *CPU) getAddress(instruction opcode) (uint16, bool) {
 	}
 }
 
-var DEBUG bool = false
+var DEBUG bool = true
 
 func (cpu *CPU) Step() (uint64, opcode) {
 	var startingCycles uint64 = cpu.CycleCount
@@ -386,8 +390,8 @@ func (cpu *CPU) Step() (uint64, opcode) {
 		}
 
 		stack := ""
-		for i := 1; i < 10 && i+int(cpu.SP) < 0xFE; i++ {
-			stack += fmt.Sprintf("%2x ", cpu.Bus.Read(uint16(i)+uint16(cpu.SP)+1+0x100))
+		for i := 1; i < 10 && i+int(cpu.SP) <= 0xFF; i++ {
+			stack += fmt.Sprintf("%2x ", cpu.Bus.Read(uint16(i)+uint16(cpu.SP)+0x100))
 		}
 
 		fmt.Printf("%4x\t%v\t%v\tA:%2x X:%2x Y:%2x P:%x SP:%2x ADDR:%4x CYC:%d\tSTK:%v\n", cpu.PC, instructionBytes, instruction.Name, cpu.A, cpu.X, cpu.Y, cpu.GetFlags(), cpu.SP, address, cpu.CycleCount, stack)
@@ -405,12 +409,21 @@ func (cpu *CPU) Step() (uint64, opcode) {
 	return cpu.CycleCount - startingCycles, instruction
 }
 
+var NMI bool = false
+
 func (cpu *CPU) Cycle() {
 	if cpu.CycleDelay == 0 {
+		if NMI {
+			reader := bufio.NewReader(os.Stdin)
+			text, _ := reader.ReadString('\n')
+			text += "\n"
+		}
 		switch cpu.Interrupt {
 		case INTERRUPTS_NONE:
 			cpu.CycleDelay, _ = cpu.Step()
 		case INTERRUPTS_NMI:
+			fmt.Println("NMI")
+			NMI = true
 			cpu._NMI()
 			cpu.Interrupt = INTERRUPTS_NONE
 			cpu.CycleDelay = 7
@@ -498,9 +511,6 @@ func (cpu *CPU) PushAddress(value uint16) {
 
 func (cpu *CPU) Pop() uint8 {
 	cpu.SP++
-	if cpu.SP > 0xFF {
-		panic("Stack underflow")
-	}
 	return cpu.Bus.Read(uint16(cpu.SP) + 0x100)
 }
 
@@ -665,10 +675,9 @@ func _BPL(cpu *CPU, addressingMode uint8, address uint16, pageCycle bool) {
 }
 
 func _BRK(cpu *CPU, addressingMode uint8, address uint16, pageCycle bool) {
-	cpu.PC++
 	cpu.PushAddress(cpu.PC)
 	cpu.P.B = 1
-	cpu.Push(cpu.SP)
+	cpu.Push(cpu.GetFlags())
 	cpu.P.I = 1
 	cpu.PC = cpu.Bus.ReadAddress(0xFFFE)
 }

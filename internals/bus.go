@@ -18,7 +18,7 @@ func (memory *Bus) Read(address uint16) uint8 {
 	case address < 0x2000:
 		return memory.nes.RAM[address%0x0800]
 	case address < 0x4000:
-		return memory.nes.PPU.ReadRegister(0x4000 + address%0x8)
+		return memory.nes.PPU.ReadRegister(0x2000 + address%0x8)
 	case address < 0x4014: // Shouldn't read this
 		panic("Should not be able to read this")
 		// return memory.nes.APU.ReadRegister(address)
@@ -54,11 +54,11 @@ func (memory *Bus) Write(address uint16, value uint8) {
 	case address == 0x4014:
 		memory.nes.PPU.WriteRegister(address, value)
 	case address == 0x4015:
-		memory.nes.APU.WriteRegister(address, value)
+		// memory.nes.APU.WriteRegister(address, value)
 	case address == 0x4016:
 		memory.nes.Controllers[0].WriteState(value)
 	case address == 0x4017:
-		memory.nes.APU.WriteRegister(address, value)
+		//memory.nes.APU.WriteRegister(address, value)
 	case address < 0x4020:
 		//0
 	default:
@@ -77,4 +77,8 @@ func (memory *Bus) ReadAddressBug(address uint16) uint16 {
 	var low uint16 = uint16(memory.Read(address))
 	var high uint16 = uint16(memory.Read((address+1)&0xFF + address&0xFF00))
 	return low | high<<8
+}
+
+func (memory *Bus) VBlank() {
+	memory.nes.CPU.InterruptNMI()
 }

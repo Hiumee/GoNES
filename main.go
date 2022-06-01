@@ -83,10 +83,10 @@ func initOpenGL() uint32 {
 
 var (
 	triangle = []float32{
-		-1, 1, 0, // top left
-		-1, -1, 0, // bottom left
-		1, 1, 0, // top right
-		1, -1, 0, // bottom right
+		-1, 1, // top left
+		-1, -1, // bottom left
+		1, 1, // top right
+		1, -1, // bottom right
 	}
 )
 
@@ -101,17 +101,17 @@ func makeVao(points []float32) uint32 {
 	gl.BindVertexArray(vao)
 	gl.EnableVertexAttribArray(0)
 	gl.BindBuffer(gl.ARRAY_BUFFER, vbo)
-	gl.VertexAttribPointer(0, 2, gl.FLOAT, false, 4*3, nil)
+	gl.VertexAttribPointer(0, 2, gl.FLOAT, false, 4*2, nil)
 
 	return vao
 }
 
-func draw(vao uint32, window *glfw.Window, program uint32) {
+func draw(vao uint32, window *glfw.Window, program uint32, buffer []uint8) {
 	gl.Clear(gl.COLOR_BUFFER_BIT)
 	gl.UseProgram(program)
 
-	gl.TexImage2D(gl.TEXTURE_2D, 0, gl.R8, 256, 240, 0, gl.RED, gl.UNSIGNED_BYTE, gl.Ptr(image_data))
-	gl.DrawArrays(gl.TRIANGLE_STRIP, 0, int32(len(triangle)/3))
+	gl.TexImage2D(gl.TEXTURE_2D, 0, gl.R8, 256, 240, 0, gl.RED, gl.UNSIGNED_BYTE, gl.Ptr(buffer))
+	gl.DrawArrays(gl.TRIANGLE_STRIP, 0, int32(len(triangle)/2))
 
 	glfw.PollEvents()
 	window.SwapBuffers()
@@ -146,6 +146,7 @@ var ROMFile = flag.String("file", "", "ROM file to load")
 var PPUViewer = flag.Bool("ppu", false, "Show PPU viewer")
 var Palette = flag.String("palette", "00,12,24,2A", "Palette information to use. Must be 4 hexadecimal representation of colors separated by commas (0x00-0x3F)")
 
+// 0,16,27,18
 func main() {
 	flag.StringVar(ROMFile, "f", "", "alias for `file`")
 	flag.BoolVar(PPUViewer, "p", false, "alias for `ppu`")
@@ -223,9 +224,14 @@ func main() {
 	// Main loop
 	for !window.ShouldClose() {
 		if nes.Cartridge.Loaded {
-			//nes.Step()
+			nes.Step()
+			if nes.PPU.Line == 241 && nes.PPU.CycleCount == 1 {
+				for i := 0; i < 256*240; i++ {
+					image_data[i] = nes.PPU.ImageData[i]
+				}
+				draw(vao, window, program, image_data)
+			}
 		}
-		draw(vao, window, program)
 	}
 }
 
