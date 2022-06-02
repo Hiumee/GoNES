@@ -7,6 +7,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/go-gl/gl/v4.1-core/gl"
 	"github.com/go-gl/glfw/v3.3/glfw"
@@ -222,6 +223,7 @@ func main() {
 	}
 
 	// Main loop
+	start := time.Now()
 	for !window.ShouldClose() {
 		if nes.Cartridge.Loaded {
 			nes.Step()
@@ -230,9 +232,42 @@ func main() {
 					image_data[i] = nes.PPU.ImageData[i]
 				}
 				draw(vao, window, program, image_data)
+				nes.Controllers[0].SetInput(getInput(window))
+				elapsed := time.Since(start)
+				start = time.Now()
+				window.SetTitle(fmt.Sprintf("Time: %d", 1000000000/elapsed))
 			}
 		}
 	}
+}
+
+func getInput(window *glfw.Window) [8]bool {
+	var input [8]bool
+	if window.GetKey(glfw.KeyO) == 1 { // A
+		input[0] = true
+	}
+	if window.GetKey(glfw.KeyI) == 1 { // B
+		input[1] = true
+	}
+	if window.GetKey(glfw.KeyL) == 1 { // SELECT
+		input[2] = true
+	}
+	if window.GetKey(glfw.KeyK) == 1 { // START
+		input[3] = true
+	}
+	if window.GetKey(glfw.KeyW) == 1 { // UP
+		input[4] = true
+	}
+	if window.GetKey(glfw.KeyS) == 1 { // DOWN
+		input[5] = true
+	}
+	if window.GetKey(glfw.KeyA) == 1 { // LEFT
+		input[6] = true
+	}
+	if window.GetKey(glfw.KeyD) == 1 { // RIGHT
+		input[7] = true
+	}
+	return input
 }
 
 func getPattern(patterns []byte, index uint) [64]uint8 {

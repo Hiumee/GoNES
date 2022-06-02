@@ -97,10 +97,10 @@ func (nes *NES) Step() uint64 {
 	// TODO: step all components
 	var cycles uint64
 
-	// For each PPU cycle, there are 3 CPU cycles at the same time
+	// For each CPU cycle, there are 3 PPU cycles at the same time
 	nes.CPU.Cycle()
-	nes.CPU.Cycle()
-	nes.CPU.Cycle()
+	nes.PPU.Cycle()
+	nes.PPU.Cycle()
 	nes.PPU.Cycle()
 
 	return cycles

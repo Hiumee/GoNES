@@ -24,20 +24,18 @@ type PPU struct {
 	ReadData       uint8
 
 	//
-	NMI_Triggered bool
-	NMI_Delay     int
+	NMI_Delay int
 
 	// Tile information
 	Tile TileData
 }
 
 type TileData struct {
-	Id         uint32
-	Attributes uint32
-	NameTable  uint8
-
-	NextId         uint32
-	NextAttributes uint32
+	NameTable      uint8
+	AttributeTable uint8
+	LowTile        uint8
+	HighTile       uint8
+	Data           uint64
 }
 
 type PPURegisters struct { // TODO: Update LaTeX file with the write/read restrictions
@@ -142,7 +140,7 @@ func (ppu *PPU) ReadRegister(address uint16) uint8 {
 		}
 
 		ppu.Registers.PPUSTATUS.VBlank = false
-		if ppu.NMI_Triggered && ppu.NMI_Delay == 0 && ppu.Registers.PPUCTRL.VBlankNMIEnabled {
+		if ppu.Registers.PPUSTATUS.VBlank && ppu.NMI_Delay == 0 && ppu.Registers.PPUCTRL.VBlankNMIEnabled {
 			ppu.NMI_Delay = 15
 		}
 		return value
@@ -155,9 +153,10 @@ func (ppu *PPU) ReadRegister(address uint16) uint8 {
 	case 0x2006:
 		panic("PPUADDR register is write only")
 	case 0x2007:
-		value := ppu.Read(ppu.PPUAddr)
+		buffered := ppu.ReadData
+		_ = ppu.Read(ppu.PPUAddr)
 		ppu.incementPPUAddr()
-		return value
+		return buffered
 	case 0x4014:
 		panic("OAMDMA register is write only")
 	}
@@ -170,7 +169,7 @@ func (ppu *PPU) Read(address uint16) uint8 {
 		ppu.ReadData = ppu.Bus.nes.Cartridge.CHR_ROM[address]
 		return ppu.ReadData
 	case address < 0x3F00: // name tables
-		ppu.ReadData = ppu.Nametables[(address-0x2000)%0x1000]
+		ppu.ReadData = ppu.Nametables[address%0x1000]
 		return ppu.ReadData
 	case address < 0x4000: // palette
 		ppu.ReadData = ppu.PaletteStorage[(address-0x3F00)%0x20]
@@ -198,7 +197,7 @@ func (ppu *PPU) WriteRegister(address uint16, value uint8) {
 		ppu.Registers.PPUCTRL.SpriteSize = (value & 0x20) != 0
 		ppu.Registers.PPUCTRL.EXTPins = (value & 0x40) != 0
 		ppu.Registers.PPUCTRL.VBlankNMIEnabled = (value & 0x80) != 0
-		if ppu.NMI_Triggered && ppu.NMI_Delay == 0 && ppu.Registers.PPUCTRL.VBlankNMIEnabled {
+		if ppu.Registers.PPUSTATUS.VBlank && ppu.NMI_Delay == 0 && ppu.Registers.PPUCTRL.VBlankNMIEnabled {
 			ppu.NMI_Delay = 15
 		}
 		ppu.TempAddr = (ppu.TempAddr & 0xF3FF) | ((uint16(value) & 0x3) << 10)
@@ -233,7 +232,7 @@ func (ppu *PPU) WriteRegister(address uint16, value uint8) {
 			ppu.TempAddr = (ppu.TempAddr & 0xFF00) | uint16(value)
 			ppu.PPUAddr = ppu.TempAddr
 		} else {
-			ppu.TempAddr = (ppu.TempAddr & 0x80FF) | (uint16(value) << 8)
+			ppu.TempAddr = (ppu.TempAddr & 0x80FF) | ((uint16(value) & 0x3F) << 8)
 		}
 		ppu.Registers.PPUADDR_LeastSignificantByte = !ppu.Registers.PPUADDR_LeastSignificantByte
 	case 0x2007:
@@ -263,22 +262,23 @@ func (ppu *PPU) Write(address uint16, value uint8) {
 		ppu.Bus.nes.Cartridge.Write(address, value)
 	case address < 0x3F00: // name tables
 		//TODO: Mirroring to be implemented
-		ppu.Nametables[ppu.Registers.PPUCTRL.NametableBase+(address-0x2000)%0x1000] = value
+		ppu.Nametables[ppu.Registers.PPUCTRL.NametableBase+((address-0x2000)%0x1000)] = value
 	case address < 0x4000: // palette
 		ppu.PaletteStorage[(address-0x3F00)%0x20] = value
 	}
 }
 
 func (ppu *PPU) vBlank() {
-	ppu.NMI_Triggered = true
-	if ppu.NMI_Triggered && ppu.NMI_Delay == 0 && ppu.Registers.PPUCTRL.VBlankNMIEnabled {
+	ppu.Registers.PPUSTATUS.VBlank = true
+	if ppu.Registers.PPUSTATUS.VBlank && ppu.NMI_Delay == 0 && ppu.Registers.PPUCTRL.VBlankNMIEnabled {
 		ppu.NMI_Delay = 15
 	}
 }
 
 func (ppu *PPU) getBackgroundPixel() uint8 {
 	if ppu.Registers.PPUMASK.ShowBackground {
-		return uint8(ppu.Tile.Attributes >> ((7 - (ppu.Registers.PPUSCROLL.X)) * 2))
+		data := uint32(ppu.Tile.Data>>32) >> ((7 - ppu.Registers.PPUSCROLL.X) * 4)
+		return byte(data & 0x0F)
 	} else {
 		return 0x00
 	}
@@ -290,74 +290,93 @@ func (ppu *PPU) renderPixel() {
 
 	background := ppu.getBackgroundPixel()
 
-	if x < 8 && ppu.Registers.PPUMASK.ShowLeftBackground {
+	if x < 8 && !ppu.Registers.PPUMASK.ShowLeftBackground {
 		background = 0x00
 	}
 
 	color := background
 
-	ppu.ImageData[x+y*256] = ppu.Read(0x3F00 + uint16(color))
+	ppu.ImageData[x+y*256] = ppu.Read(0x3F00 + (uint16(color) % 64))
 }
 
 func (ppu *PPU) Cycle() {
 	if ppu.NMI_Delay > 0 {
 		ppu.NMI_Delay--
-		if ppu.NMI_Delay == 0 && ppu.Registers.PPUCTRL.VBlankNMIEnabled && ppu.NMI_Triggered {
-			ppu.Registers.PPUCTRL.VBlankNMIEnabled = false
+		if ppu.NMI_Delay == 0 && ppu.Registers.PPUCTRL.VBlankNMIEnabled && ppu.Registers.PPUSTATUS.VBlank {
 			ppu.Bus.VBlank()
 		}
 	}
 
-	// If rendering is enabled (of any type)
-	if ppu.Registers.PPUMASK.ShowBackground || ppu.Registers.PPUMASK.ShowSprites {
+	// Move to the next pixel
+	ppu.CycleCount++
+	if ppu.CycleCount > 340 {
+		ppu.CycleCount = 0
+		ppu.Line++
+		if ppu.Line > 261 {
+			ppu.Line = 0
+			ppu.FrameCount++
+		}
+	}
+
+	renderingEnabled := ppu.Registers.PPUMASK.ShowBackground || ppu.Registers.PPUMASK.ShowSprites
+	preLine := ppu.Line == 261
+	visibleLine := ppu.Line < 240
+	renderLine := preLine || visibleLine
+	preFetchCycle := ppu.CycleCount >= 321 && ppu.CycleCount <= 336
+	visibleCycle := ppu.CycleCount >= 1 && ppu.CycleCount <= 256
+	fetchCycle := preFetchCycle || visibleCycle
+
+	if renderingEnabled {
 		// Visible pixel
-		if ppu.Line < 240 && ppu.CycleCount >= 1 && ppu.CycleCount <= 256 {
+		if visibleLine && visibleCycle {
 			ppu.renderPixel()
 		}
 
 		// Line and cycle for fetching tile information
-		if (ppu.Line < 240 || ppu.Line == 261) && ((ppu.CycleCount >= 321 && ppu.CycleCount <= 336) || (ppu.CycleCount >= 1 && ppu.CycleCount <= 256)) {
-			ppu.Tile.Id <<= 2
-			ppu.Tile.Attributes <<= 2
+		if renderLine && fetchCycle {
+			ppu.Tile.Data <<= 4
 
 			switch ppu.CycleCount & 0x07 {
 			case 0:
-				ppu.Tile.Id |= uint32(ppu.Tile.NextId & 0x03)
-				ppu.Tile.Attributes |= uint32(ppu.Tile.NextAttributes)
+				var data uint32
+				for i := 0; i < 8; i++ {
+					a := ppu.Tile.AttributeTable
+					p1 := (ppu.Tile.LowTile & 0x80) >> 7
+					p2 := (ppu.Tile.HighTile & 0x80) >> 6
+					ppu.Tile.LowTile <<= 1
+					ppu.Tile.HighTile <<= 1
+					data <<= 4
+					data |= uint32(a | p1 | p2)
+				}
+				ppu.Tile.Data |= uint64(data)
 			case 1:
 				ppu.Tile.NameTable = ppu.Read(0x2000 | (ppu.PPUAddr & 0x0FFF))
 			case 3:
 				v := ppu.PPUAddr
 				address := 0x23C0 | (v & 0x0C00) | ((v >> 4) & 0x38) | ((v >> 2) & 0x07)
 				shift := ((v >> 4) & 4) | (v & 2)
-				ppu.Tile.NextAttributes = uint32((ppu.Read(address)>>shift)&3) << 2
+				ppu.Tile.AttributeTable = ((ppu.Read(address) >> shift) & 3) << 2
 			case 5:
 				fineY := (ppu.PPUAddr >> 12) & 7
 				table := ppu.Registers.PPUCTRL.BackgroundPatternTableBase
 				tile := ppu.Tile.NameTable
 				address := table + uint16(tile)*16 + fineY
-				value := ppu.Read(address)
-				var to_store uint32 = 0
-				for i := 0; i < 8; i++ {
-					to_store |= ((uint32(value) >> (7 - i)) & 0x1) << ((7 - i) * 2)
-				}
-				ppu.Tile.NextId = to_store
+				ppu.Tile.LowTile = ppu.Read(address)
 			case 7:
 				fineY := (ppu.PPUAddr >> 12) & 7
 				table := ppu.Registers.PPUCTRL.BackgroundPatternTableBase
 				tile := ppu.Tile.NameTable
 				address := table + uint16(tile)*16 + fineY
-				value := ppu.Read(address + 8)
-				var to_store uint32 = 0
-				for i := 0; i < 8; i++ {
-					to_store |= ((uint32(value) >> (7 - i)) & 0x1) << ((7-i)*2 + 1)
-				}
-				ppu.Tile.NextId |= to_store
+				ppu.Tile.HighTile = ppu.Read(address + 8)
 			}
 		}
 
-		if ppu.Line < 240 || ppu.Line == 261 {
-			if (ppu.CycleCount >= 321 && ppu.CycleCount <= 336) || (ppu.CycleCount >= 1 && ppu.CycleCount <= 256) {
+		if preLine && ppu.CycleCount >= 280 && ppu.CycleCount <= 304 {
+			ppu.PPUAddr = (ppu.PPUAddr & 0x841F) | (ppu.TempAddr & 0x7BE0)
+		}
+
+		if renderLine {
+			if fetchCycle && ppu.CycleCount%8 == 0 {
 				v := ppu.PPUAddr
 				if v&0x1F == 31 {
 					v &= 0xFFE0
@@ -395,21 +414,10 @@ func (ppu *PPU) Cycle() {
 				ppu.PPUAddr = v
 			}
 			if ppu.CycleCount == 257 {
-				ppu.PPUAddr = (ppu.PPUAddr & 0x841F) | (ppu.TempAddr & 0x7BE0)
+				ppu.PPUAddr = (ppu.PPUAddr & 0xFBE0) | (ppu.TempAddr & 0x041F)
 			}
 		}
 
-	}
-
-	// Move to the next pixel
-	ppu.CycleCount++
-	if ppu.CycleCount > 340 {
-		ppu.CycleCount = 0
-		ppu.Line++
-		if ppu.Line > 261 {
-			ppu.Line = 0
-			ppu.FrameCount++
-		}
 	}
 
 	if ppu.CycleCount == 1 && ppu.Line == 241 {
@@ -420,7 +428,7 @@ func (ppu *PPU) Cycle() {
 		ppu.Registers.PPUSTATUS.VBlank = false
 		ppu.Registers.PPUSTATUS.SpriteZeroHit = false
 		// ppu.Registers.PPUSTATUS.SpriteOverflow = false; Buggy behaviour on original hardware
-		if ppu.NMI_Triggered && ppu.NMI_Delay == 0 && ppu.Registers.PPUCTRL.VBlankNMIEnabled {
+		if ppu.Registers.PPUSTATUS.VBlank && ppu.NMI_Delay == 0 && ppu.Registers.PPUCTRL.VBlankNMIEnabled {
 			ppu.NMI_Delay = 15
 		}
 	}

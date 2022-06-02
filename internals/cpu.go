@@ -1,9 +1,7 @@
 package internals
 
 import (
-	"bufio"
 	"fmt"
-	"os"
 )
 
 const (
@@ -367,7 +365,7 @@ func (cpu *CPU) getAddress(instruction opcode) (uint16, bool) {
 	}
 }
 
-var DEBUG bool = true
+var DEBUG bool = false
 
 func (cpu *CPU) Step() (uint64, opcode) {
 	var startingCycles uint64 = cpu.CycleCount
@@ -409,21 +407,12 @@ func (cpu *CPU) Step() (uint64, opcode) {
 	return cpu.CycleCount - startingCycles, instruction
 }
 
-var NMI bool = false
-
 func (cpu *CPU) Cycle() {
 	if cpu.CycleDelay == 0 {
-		if NMI {
-			reader := bufio.NewReader(os.Stdin)
-			text, _ := reader.ReadString('\n')
-			text += "\n"
-		}
 		switch cpu.Interrupt {
 		case INTERRUPTS_NONE:
 			cpu.CycleDelay, _ = cpu.Step()
 		case INTERRUPTS_NMI:
-			fmt.Println("NMI")
-			NMI = true
 			cpu._NMI()
 			cpu.Interrupt = INTERRUPTS_NONE
 			cpu.CycleDelay = 7
@@ -469,6 +458,7 @@ func (cpu *CPU) PowerUp() {
 	cpu.Y = 0
 	cpu.SP = 0xFD
 	cpu.CycleCount = 7 // Warming up
+	cpu.P.I = 1
 
 	cpu.Interrupt = INTERRUPTS_NONE
 }
@@ -476,7 +466,7 @@ func (cpu *CPU) PowerUp() {
 // https://wiki.nesdev.org/w/index.php?title=CPU_power_up_state
 func (cpu *CPU) Reset() {
 	cpu.PC = cpu.Bus.ReadAddress(0xFFFC)
-	cpu.SP = cpu.SP - 3
+	cpu.SP = 0xFD
 	cpu.P.I = 1
 
 	cpu.Interrupt = INTERRUPTS_NONE

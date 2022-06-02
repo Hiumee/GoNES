@@ -50,7 +50,7 @@ func (memory *Bus) Write(address uint16, value uint8) {
 	case address < 0x4000:
 		memory.nes.PPU.WriteRegister(0x2000+address%0x08, value)
 	case address < 0x4014:
-		memory.nes.APU.WriteRegister(address, value)
+		// memory.nes.APU.WriteRegister(address, value)
 	case address == 0x4014:
 		memory.nes.PPU.WriteRegister(address, value)
 	case address == 0x4015:
