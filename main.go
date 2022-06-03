@@ -7,7 +7,6 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/go-gl/gl/v4.1-core/gl"
 	"github.com/go-gl/glfw/v3.3/glfw"
@@ -114,7 +113,6 @@ func draw(vao uint32, window *glfw.Window, program uint32, buffer []uint8) {
 	gl.TexImage2D(gl.TEXTURE_2D, 0, gl.R8, 256, 240, 0, gl.RED, gl.UNSIGNED_BYTE, gl.Ptr(buffer))
 	gl.DrawArrays(gl.TRIANGLE_STRIP, 0, int32(len(triangle)/2))
 
-	glfw.PollEvents()
 	window.SwapBuffers()
 }
 
@@ -223,19 +221,20 @@ func main() {
 	}
 
 	// Main loop
-	start := time.Now()
+	//start := time.Now()
 	for !window.ShouldClose() {
 		if nes.Cartridge.Loaded {
 			nes.Step()
-			if nes.PPU.Line == 241 && nes.PPU.CycleCount == 1 {
+			if nes.PPU.Line == 241 && (nes.PPU.CycleCount == 1 || nes.PPU.CycleCount == 2 || nes.PPU.CycleCount == 3) {
 				for i := 0; i < 256*240; i++ {
 					image_data[i] = nes.PPU.ImageData[i]
 				}
 				draw(vao, window, program, image_data)
+				glfw.PollEvents()
 				nes.Controllers[0].SetInput(getInput(window))
-				elapsed := time.Since(start)
-				start = time.Now()
-				window.SetTitle(fmt.Sprintf("Time: %d", 1000000000/elapsed))
+				//elapsed := time.Since(start)
+				//time.Sleep((16 - time.Duration(elapsed.Milliseconds())) * time.Millisecond)
+				//start = time.Now()
 			}
 		}
 	}

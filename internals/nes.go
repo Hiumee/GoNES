@@ -2,6 +2,7 @@ package internals
 
 import (
 	"os"
+	"strconv"
 )
 
 type NES struct {
@@ -58,6 +59,10 @@ func (nes *NES) LoadFile(filename string) {
 	nes.Cartridge.Header.Trainer = flags6&(0x1<<2) == 1
 	nes.Cartridge.Header.IgnoreMorriring = flags6&(0x1<<3) == 1
 	nes.Cartridge.Header.Mapper = uint(flags6&0xF0) >> 4
+
+	if nes.Cartridge.Header.Mapper != 0 {
+		panic("Unsupported mapper: " + strconv.Itoa(int(nes.Cartridge.Header.Mapper)))
+	}
 
 	// Flags 7
 	/*

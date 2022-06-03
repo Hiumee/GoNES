@@ -28,6 +28,17 @@ type PPU struct {
 
 	// Tile information
 	Tile TileData
+
+	// Sprite information
+	Sprites SpritesData
+}
+
+type SpritesData struct {
+	Count      uint8
+	Patterns   [8]uint32
+	Positions  [8]uint8
+	Priorities [8]uint8
+	Indexes    [8]uint8
 }
 
 type TileData struct {
@@ -201,7 +212,6 @@ func (ppu *PPU) WriteRegister(address uint16, value uint8) {
 			ppu.NMI_Delay = 15
 		}
 		ppu.TempAddr = (ppu.TempAddr & 0xF3FF) | ((uint16(value) & 0x3) << 10)
-		// TODO: NMI
 	case 0x2001:
 		ppu.Registers.PPUMASK.Greyscale = (value & 0x1) != 0
 		ppu.Registers.PPUMASK.ShowLeftBackground = (value & 0x2) != 0
@@ -262,6 +272,9 @@ func (ppu *PPU) Write(address uint16, value uint8) {
 		ppu.Bus.nes.Cartridge.Write(address, value)
 	case address < 0x3F00: // name tables
 		//TODO: Mirroring to be implemented
+		if ppu.Bus.nes.Cartridge.Header.Mirroring {
+			// TODO: Finish this thing
+		}
 		ppu.Nametables[ppu.Registers.PPUCTRL.NametableBase+((address-0x2000)%0x1000)] = value
 	case address < 0x4000: // palette
 		ppu.PaletteStorage[(address-0x3F00)%0x20] = value
@@ -284,17 +297,135 @@ func (ppu *PPU) getBackgroundPixel() uint8 {
 	}
 }
 
+func (ppu *PPU) getSpritePixel() (uint8, uint8) {
+	if !ppu.Registers.PPUMASK.ShowSprites {
+		return 0, 0
+	}
+	var i uint8
+	for i = 0; i < ppu.Sprites.Count; i++ {
+		offset := int(ppu.CycleCount-1) - int(ppu.Sprites.Positions[i])
+		if offset < 0 || offset > 7 {
+			continue
+		}
+		offset = 7 - offset
+		color := byte((ppu.Sprites.Patterns[i] >> byte(offset*4)) & 0x0F)
+		if color%4 == 0 {
+			continue
+		}
+		return byte(i), color
+	}
+	return 0, 0
+}
+
+func (ppu *PPU) fetchSpritePattern(i, row int) uint32 {
+	tile := ppu.OAMData[i*4+1]
+	attributes := ppu.OAMData[i*4+2]
+	var address uint16
+	if !ppu.Registers.PPUCTRL.SpriteSize {
+		if attributes&0x80 == 0x80 {
+			row = 7 - row
+		}
+		table := ppu.Registers.PPUCTRL.SpritePatternTableBase
+		address = table + uint16(tile)*16 + uint16(row)
+	} else {
+		if attributes&0x80 == 0x80 {
+			row = 15 - row
+		}
+		table := tile & 1
+		tile &= 0xFE
+		if row > 7 {
+			tile++
+			row -= 8
+		}
+		address = 0x1000*uint16(table) + uint16(tile)*16 + uint16(row)
+	}
+	a := (attributes & 3) << 2
+	lowTileByte := ppu.Read(address)
+	highTileByte := ppu.Read(address + 8)
+	var data uint32
+	for i := 0; i < 8; i++ {
+		var p1, p2 byte
+		if attributes&0x40 == 0x40 {
+			p1 = (lowTileByte & 1) << 0
+			p2 = (highTileByte & 1) << 1
+			lowTileByte >>= 1
+			highTileByte >>= 1
+		} else {
+			p1 = (lowTileByte & 0x80) >> 7
+			p2 = (highTileByte & 0x80) >> 6
+			lowTileByte <<= 1
+			highTileByte <<= 1
+		}
+		data <<= 4
+		data |= uint32(a | p1 | p2)
+	}
+	return data
+}
+
+func (ppu *PPU) evaluateSprites() {
+	var h int
+	if !ppu.Registers.PPUCTRL.SpriteSize {
+		h = 8
+	} else {
+		h = 16
+	}
+	count := 0
+	for i := 0; i < 64; i++ {
+		y := ppu.OAMData[i*4+0]
+		a := ppu.OAMData[i*4+2]
+		x := ppu.OAMData[i*4+3]
+		row := int(ppu.Line) - int(y)
+		if row < 0 || row >= h {
+			continue
+		}
+		if count < 8 {
+			ppu.Sprites.Patterns[count] = ppu.fetchSpritePattern(i, row)
+			ppu.Sprites.Positions[count] = x
+			ppu.Sprites.Priorities[count] = (a >> 5) & 1
+			ppu.Sprites.Indexes[count] = byte(i)
+		}
+		count++
+	}
+	if count > 8 {
+		count = 8
+		ppu.Registers.PPUSTATUS.SpriteOverflow = true
+	}
+	ppu.Sprites.Count = uint8(count)
+}
+
 func (ppu *PPU) renderPixel() {
 	x := ppu.CycleCount - 1
 	y := ppu.Line
 
 	background := ppu.getBackgroundPixel()
+	i, sprite := ppu.getSpritePixel()
 
 	if x < 8 && !ppu.Registers.PPUMASK.ShowLeftBackground {
 		background = 0x00
 	}
 
-	color := background
+	if x < 8 && !ppu.Registers.PPUMASK.ShowLeftSprites {
+		sprite = 0
+	}
+	b := background%4 != 0
+	s := sprite%4 != 0
+	var color byte
+	if !b && !s {
+		color = 0
+	} else if !b && s {
+		color = sprite | 0x10
+	} else if b && !s {
+		color = background
+	} else {
+		if ppu.Sprites.Indexes[i] == 0 && x < 255 {
+			ppu.Registers.PPUSTATUS.SpriteZeroHit = true
+		}
+		if ppu.Sprites.Priorities[i] == 0 {
+			color = sprite | 0x10
+		} else {
+			color = background
+		}
+	}
 
 	ppu.ImageData[x+y*256] = ppu.Read(0x3F00 + (uint16(color) % 64))
 }
@@ -420,6 +551,16 @@ func (ppu *PPU) Cycle() {
 
 	}
 
+	if renderingEnabled {
+		if ppu.CycleCount == 257 {
+			if visibleLine {
+				ppu.evaluateSprites()
+			} else {
+				ppu.Sprites.Count = 0
+			}
+		}
+	}
+
 	if ppu.CycleCount == 1 && ppu.Line == 241 {
 		ppu.vBlank()
 	}
@@ -427,7 +568,7 @@ func (ppu *PPU) Cycle() {
 	if ppu.Line == 261 && ppu.CycleCount == 1 {
 		ppu.Registers.PPUSTATUS.VBlank = false
 		ppu.Registers.PPUSTATUS.SpriteZeroHit = false
-		// ppu.Registers.PPUSTATUS.SpriteOverflow = false; Buggy behaviour on original hardware
+		ppu.Registers.PPUSTATUS.SpriteOverflow = false // Buggy behaviour on original hardware
 		if ppu.Registers.PPUSTATUS.VBlank && ppu.NMI_Delay == 0 && ppu.Registers.PPUCTRL.VBlankNMIEnabled {
 			ppu.NMI_Delay = 15
 		}
