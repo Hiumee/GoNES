@@ -152,7 +152,7 @@ var ROMFile = flag.String("file", "", "ROM file to load")
 var PPUViewer = flag.Bool("ppu", false, "Show PPU viewer")
 var Palette = flag.String("palette", "00,12,24,2A", "Palette information to use. Must be 4 hexadecimal representation of colors separated by commas (0x00-0x3F)")
 
-var cpuprofile = "profile2.prof"
+var cpuprofile = ""
 
 // 0,16,27,18
 func main() {
@@ -162,7 +162,8 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		pprof.StartCPUProfile(f)
+		//pprof.StartCPUProfile(f)
+		pprof.WriteHeapProfile(f)
 		defer pprof.StopCPUProfile()
 	}
 	flag.StringVar(ROMFile, "f", "", "alias for `file`")
@@ -238,27 +239,35 @@ func main() {
 		}
 	}
 
-	// Main loop
-	start := time.Now()
-	ts := start
-	for !window.ShouldClose() {
-		if nes.Cartridge.Loaded {
-			ts = time.Now()
-			elapsed := ts.Sub(start).Seconds()
-			cycles := int(elapsed * FREQUENCY)
-			start = ts
-			for cycles > 0 {
-				cycles--
-				nes.Step()
-				if nes.PPU.Line == 241 && (nes.PPU.CycleCount >= 1 && nes.PPU.CycleCount <= 3) {
-					for i := 0; i < 256*240; i++ {
-						image_data[i] = nes.PPU.ImageData[i]
+	if *PPUViewer {
+		for !window.ShouldClose() {
+			draw(vao, window, program, image_data)
+			glfw.PollEvents()
+			time.Sleep(time.Millisecond * 50)
+		}
+	}
+
+	if !*PPUViewer {
+		// Main loop
+		start := time.Now()
+		ts := start
+		for !window.ShouldClose() {
+			if nes.Cartridge.Loaded {
+				ts = time.Now()
+				elapsed := ts.Sub(start).Seconds()
+				cycles := int(elapsed * FREQUENCY)
+				start = ts
+				for cycles > 0 {
+					cycles--
+					nes.Step()
+					if nes.PPU.Line == 241 && (nes.PPU.CycleCount >= 1 && nes.PPU.CycleCount <= 3) {
+						for i := 0; i < 256*240; i++ {
+							image_data[i] = nes.PPU.ImageData[i]
+						}
+						draw(vao, window, program, image_data)
+						glfw.PollEvents()
+						nes.Controllers[0].SetInput(getInput(window))
 					}
-					draw(vao, window, program, image_data)
-					glfw.PollEvents()
-					nes.Controllers[0].SetInput(getInput(window))
-					//time.Sleep((16 - time.Duration(elapsed.Milliseconds())) * time.Millisecond)
-					//start = time.Now()
 				}
 			}
 		}

@@ -193,7 +193,11 @@ func (ppu *PPU) Read(address uint16) uint8 {
 		ppu.ReadData = ppu.Nametables[address%0x800]
 		return ppu.ReadData
 	case address < 0x4000: // palette
-		ppu.ReadData = ppu.PaletteStorage[(address-0x3F00)%0x20]
+		if address > 0x3F0F && address%0x4 == 0 {
+			ppu.ReadData = ppu.PaletteStorage[0]
+		} else {
+			ppu.ReadData = ppu.PaletteStorage[(address-0x3F00)%0x20]
+		}
 		return ppu.ReadData
 	default:
 		panic("Invalid PPU address: " + fmt.Sprintf("%x", address))
@@ -293,7 +297,11 @@ func (ppu *PPU) Write(address uint16, value uint8) {
 		}
 		ppu.Nametables[address] = value
 	case address < 0x4000: // palette
-		ppu.PaletteStorage[(address-0x3F00)%0x20] = value
+		if address > 0x3F0F && address%0x4 == 0 {
+			ppu.PaletteStorage[0] = value
+		} else {
+			ppu.PaletteStorage[(address-0x3F00)%0x20] = value
+		}
 	}
 }
 
