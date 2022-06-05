@@ -154,6 +154,22 @@ var Palette = flag.String("palette", "00,12,24,2A", "Palette information to use.
 
 var cpuprofile = ""
 
+var USER_INPUT struct {
+	A, B, Select, Start, Up, Down, Left, Right, Reset glfw.Key
+}
+
+func loadConfig() {
+	USER_INPUT.A = glfw.KeyI
+	USER_INPUT.B = glfw.KeyO
+	USER_INPUT.Select = glfw.KeyK
+	USER_INPUT.Start = glfw.KeyL
+	USER_INPUT.Up = glfw.KeyW
+	USER_INPUT.Down = glfw.KeyS
+	USER_INPUT.Left = glfw.KeyA
+	USER_INPUT.Right = glfw.KeyD
+	USER_INPUT.Reset = glfw.KeyR
+}
+
 // 0,16,27,18
 func main() {
 	if cpuprofile != "" {
@@ -176,6 +192,8 @@ func main() {
 		flag.Usage()
 		return
 	}
+
+	loadConfig()
 
 	runtime.LockOSThread()
 
@@ -266,6 +284,9 @@ func main() {
 						}
 						draw(vao, window, program, image_data)
 						glfw.PollEvents()
+						if window.GetKey(USER_INPUT.Reset) == 1 { // A
+							nes.CPU.Reset()
+						}
 						nes.Controllers[0].SetInput(getInput(window))
 					}
 				}
@@ -276,28 +297,28 @@ func main() {
 
 func getInput(window *glfw.Window) [8]bool {
 	var input [8]bool
-	if window.GetKey(glfw.KeyO) == 1 { // A
+	if window.GetKey(USER_INPUT.A) == 1 { // A
 		input[0] = true
 	}
-	if window.GetKey(glfw.KeyI) == 1 { // B
+	if window.GetKey(USER_INPUT.B) == 1 { // B
 		input[1] = true
 	}
-	if window.GetKey(glfw.KeyL) == 1 { // SELECT
+	if window.GetKey(USER_INPUT.Select) == 1 { // SELECT
 		input[2] = true
 	}
-	if window.GetKey(glfw.KeyK) == 1 { // START
+	if window.GetKey(USER_INPUT.Start) == 1 { // START
 		input[3] = true
 	}
-	if window.GetKey(glfw.KeyW) == 1 { // UP
+	if window.GetKey(USER_INPUT.Up) == 1 { // UP
 		input[4] = true
 	}
-	if window.GetKey(glfw.KeyS) == 1 { // DOWN
+	if window.GetKey(USER_INPUT.Down) == 1 { // DOWN
 		input[5] = true
 	}
-	if window.GetKey(glfw.KeyA) == 1 { // LEFT
+	if window.GetKey(USER_INPUT.Left) == 1 { // LEFT
 		input[6] = true
 	}
-	if window.GetKey(glfw.KeyD) == 1 { // RIGHT
+	if window.GetKey(USER_INPUT.Right) == 1 { // RIGHT
 		input[7] = true
 	}
 	return input
