@@ -13,7 +13,6 @@ func (controller *Controller) SetInput(state [8]bool) {
 }
 
 func (controller *Controller) ReadState() uint8 {
-	// TODO: Modify
 	var state uint8 = 0
 	if controller.count < 8 && controller.state[controller.count] {
 		state = 1

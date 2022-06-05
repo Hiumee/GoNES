@@ -4,13 +4,20 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"os"
 	"runtime"
+	"runtime/pprof"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/go-gl/gl/v4.1-core/gl"
 	"github.com/go-gl/glfw/v3.3/glfw"
 	"github.com/hiumee/NES/internals"
+)
+
+const (
+	FREQUENCY = 1789773
 )
 
 const (
@@ -145,8 +152,19 @@ var ROMFile = flag.String("file", "", "ROM file to load")
 var PPUViewer = flag.Bool("ppu", false, "Show PPU viewer")
 var Palette = flag.String("palette", "00,12,24,2A", "Palette information to use. Must be 4 hexadecimal representation of colors separated by commas (0x00-0x3F)")
 
+var cpuprofile = "profile2.prof"
+
 // 0,16,27,18
 func main() {
+	if cpuprofile != "" {
+		fmt.Println("PROFILING")
+		f, err := os.Create(cpuprofile)
+		if err != nil {
+			log.Fatal(err)
+		}
+		pprof.StartCPUProfile(f)
+		defer pprof.StopCPUProfile()
+	}
 	flag.StringVar(ROMFile, "f", "", "alias for `file`")
 	flag.BoolVar(PPUViewer, "p", false, "alias for `ppu`")
 	flag.StringVar(Palette, "l", "00,12,24,2A", "alias for `palette`")
@@ -221,20 +239,27 @@ func main() {
 	}
 
 	// Main loop
-	//start := time.Now()
+	start := time.Now()
+	ts := start
 	for !window.ShouldClose() {
 		if nes.Cartridge.Loaded {
-			nes.Step()
-			if nes.PPU.Line == 241 && (nes.PPU.CycleCount == 1 || nes.PPU.CycleCount == 2 || nes.PPU.CycleCount == 3) {
-				for i := 0; i < 256*240; i++ {
-					image_data[i] = nes.PPU.ImageData[i]
+			ts = time.Now()
+			elapsed := ts.Sub(start).Seconds()
+			cycles := int(elapsed * FREQUENCY)
+			start = ts
+			for cycles > 0 {
+				cycles--
+				nes.Step()
+				if nes.PPU.Line == 241 && (nes.PPU.CycleCount >= 1 && nes.PPU.CycleCount <= 3) {
+					for i := 0; i < 256*240; i++ {
+						image_data[i] = nes.PPU.ImageData[i]
+					}
+					draw(vao, window, program, image_data)
+					glfw.PollEvents()
+					nes.Controllers[0].SetInput(getInput(window))
+					//time.Sleep((16 - time.Duration(elapsed.Milliseconds())) * time.Millisecond)
+					//start = time.Now()
 				}
-				draw(vao, window, program, image_data)
-				glfw.PollEvents()
-				nes.Controllers[0].SetInput(getInput(window))
-				//elapsed := time.Since(start)
-				//time.Sleep((16 - time.Duration(elapsed.Milliseconds())) * time.Millisecond)
-				//start = time.Now()
 			}
 		}
 	}

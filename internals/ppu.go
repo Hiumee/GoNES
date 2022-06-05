@@ -15,7 +15,7 @@ type PPU struct {
 	FrameCount uint64
 	Line       uint64
 
-	Nametables     [4 * 0x400]uint8
+	Nametables     [2 * 0x400]uint8
 	PaletteStorage [0x20]uint8
 	OAMData        [256]uint8 // 64 entries of 4 bytes: y, tile, attributes, x; in this order
 	OAMAddr        uint8
@@ -54,7 +54,7 @@ type PPURegisters struct { // TODO: Update LaTeX file with the write/read restri
 	PPUMASK   PPUMASKRegister   // 0x2001 Write only
 	PPUSTATUS PPUSTATUSRegister // 0x2002 Read only
 	OAMADDR   OAMADDRRegister   // 0x2003 Write only
-	OAMDATA   OAMDATARegister   // 0x2004 Read/Write; TODO: Writes increment OAMADDR
+	OAMDATA   OAMDATARegister   // 0x2004 Read/Write
 	PPUSCROLL PPUSCROLLRegister // 0x2005 Write x2 only
 	PPUADDR   PPUADDRRegister   // 0x2006 Write x2 only
 	PPUDATA   PPUDATARegister   // 0x2007 Read/Write
@@ -180,7 +180,17 @@ func (ppu *PPU) Read(address uint16) uint8 {
 		ppu.ReadData = ppu.Bus.nes.Cartridge.CHR_ROM[address]
 		return ppu.ReadData
 	case address < 0x3F00: // name tables
-		ppu.ReadData = ppu.Nametables[address%0x1000]
+		address = address % 0x1000
+		if ppu.Bus.nes.Cartridge.Header.Mirroring {
+			address = address % 0x800
+		} else {
+			if address < 0x800 {
+				address = address % 0x400
+			} else {
+				address = (address % 0x400) + 0x400
+			}
+		}
+		ppu.ReadData = ppu.Nametables[address%0x800]
 		return ppu.ReadData
 	case address < 0x4000: // palette
 		ppu.ReadData = ppu.PaletteStorage[(address-0x3F00)%0x20]
@@ -271,11 +281,17 @@ func (ppu *PPU) Write(address uint16, value uint8) {
 	case address < 0x2000: // pattern tables, on the cartridge
 		ppu.Bus.nes.Cartridge.Write(address, value)
 	case address < 0x3F00: // name tables
-		//TODO: Mirroring to be implemented
+		address = address % 0x1000
 		if ppu.Bus.nes.Cartridge.Header.Mirroring {
-			// TODO: Finish this thing
+			address = address % 0x800
+		} else {
+			if address < 0x800 {
+				address = address % 0x400
+			} else {
+				address = (address % 0x400) + 0x400
+			}
 		}
-		ppu.Nametables[ppu.Registers.PPUCTRL.NametableBase+((address-0x2000)%0x1000)] = value
+		ppu.Nametables[address] = value
 	case address < 0x4000: // palette
 		ppu.PaletteStorage[(address-0x3F00)%0x20] = value
 	}

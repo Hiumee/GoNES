@@ -16,7 +16,6 @@ type NES struct {
 }
 
 func NewNES() *NES {
-	// TODO: init all components
 	var nes NES
 	var bus *Bus = &Bus{}
 	var cpu *CPU = &CPU{}
@@ -99,7 +98,6 @@ func (nes *NES) Initialize() {
 }
 
 func (nes *NES) Step() uint64 {
-	// TODO: step all components
 	var cycles uint64
 
 	// For each CPU cycle, there are 3 PPU cycles at the same time
