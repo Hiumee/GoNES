@@ -167,6 +167,9 @@ func (ppu *PPU) ReadRegister(address uint16) uint8 {
 		buffered := ppu.ReadData
 		_ = ppu.Read(ppu.PPUAddr)
 		ppu.incementPPUAddr()
+		if ppu.PPUAddr >= 0x3F00 {
+			return ppu.ReadData
+		}
 		return buffered
 	case 0x4014:
 		panic("OAMDMA register is write only")
@@ -194,7 +197,7 @@ func (ppu *PPU) Read(address uint16) uint8 {
 		return ppu.ReadData
 	case address < 0x4000: // palette
 		if address > 0x3F0F && address%0x4 == 0 {
-			ppu.ReadData = ppu.PaletteStorage[0]
+			ppu.ReadData = ppu.PaletteStorage[address-0x3F10]
 		} else {
 			ppu.ReadData = ppu.PaletteStorage[(address-0x3F00)%0x20]
 		}
@@ -298,7 +301,7 @@ func (ppu *PPU) Write(address uint16, value uint8) {
 		ppu.Nametables[address] = value
 	case address < 0x4000: // palette
 		if address > 0x3F0F && address%0x4 == 0 {
-			ppu.PaletteStorage[0] = value
+			ppu.PaletteStorage[address-0x3F10] = value
 		} else {
 			ppu.PaletteStorage[(address-0x3F00)%0x20] = value
 		}
