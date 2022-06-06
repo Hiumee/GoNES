@@ -115,9 +115,7 @@ func makeVao(points []float32) uint32 {
 
 func draw(vao uint32, window *glfw.Window, program uint32, buffer []uint8) {
 	gl.Clear(gl.COLOR_BUFFER_BIT)
-	gl.UseProgram(program)
-
-	gl.TexImage2D(gl.TEXTURE_2D, 0, gl.R8, 256, 240, 0, gl.RED, gl.UNSIGNED_BYTE, gl.Ptr(buffer))
+	gl.TexSubImage2D(gl.TEXTURE_2D, 0, 0, 0, 256, 240, gl.RED, gl.UNSIGNED_BYTE, gl.Ptr(buffer))
 	gl.DrawArrays(gl.TRIANGLE_STRIP, 0, int32(len(triangle)/2))
 
 	window.SwapBuffers()
@@ -256,6 +254,10 @@ func main() {
 			}
 		}
 	}
+
+	gl.UseProgram(program)
+
+	gl.TexImage2D(gl.TEXTURE_2D, 0, gl.R8, 256, 240, 0, gl.RED, gl.UNSIGNED_BYTE, gl.Ptr(image_data))
 
 	if *PPUViewer {
 		for !window.ShouldClose() {
