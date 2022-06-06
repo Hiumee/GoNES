@@ -38,7 +38,7 @@ const (
 	uniform sampler2D gameTexture;
 	uniform sampler1D palette;
     void main() {
-		float col = texture(gameTexture, texCoo).r*4.0f;
+		float col = texture(gameTexture, texCoo).r*4.0;
 		frag_colour = texture(palette, col);
     }
 ` + "\x00"

@@ -1,7 +1,7 @@
 package internals
 
 import (
-	"os"
+	"io/ioutil"
 	"strconv"
 )
 
@@ -32,7 +32,7 @@ func NewNES() *NES {
 }
 
 func (nes *NES) LoadFile(filename string) {
-	data, err := os.ReadFile(filename)
+	data, err := ioutil.ReadFile(filename)
 	if err != nil {
 		panic("Could not read the input file")
 	}
