@@ -149,6 +149,7 @@ var image_data []uint8 = make([]uint8, 256*240)
 var ROMFile = flag.String("file", "", "ROM file to load")
 var PPUViewer = flag.Bool("ppu", false, "Show PPU viewer")
 var Palette = flag.String("palette", "00,12,24,2A", "Palette information to use. Must be 4 hexadecimal representation of colors separated by commas (0x00-0x3F)")
+var Config = flag.String("config", "", "Configuration file for the emulator containing the keyboard mapping")
 
 var cpuprofile = ""
 
@@ -183,6 +184,7 @@ func main() {
 	flag.StringVar(ROMFile, "f", "", "alias for `file`")
 	flag.BoolVar(PPUViewer, "p", false, "alias for `ppu`")
 	flag.StringVar(Palette, "l", "00,12,24,2A", "alias for `palette`")
+	flag.StringVar(Config, "c", "", "alias for `config`")
 
 	flag.Parse()
 
@@ -213,6 +215,7 @@ func main() {
 	var color_palette_texture uint32
 
 	gl.GenTextures(1, &color_palette_texture)
+	gl.ActiveTexture(gl.TEXTURE0)
 	gl.BindTexture(gl.TEXTURE_1D, color_palette_texture)
 
 	gl.TexParameteri(gl.TEXTURE_1D, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
@@ -223,6 +226,7 @@ func main() {
 
 	var texture uint32
 	gl.GenTextures(1, &texture)
+	gl.ActiveTexture(gl.TEXTURE1)
 	gl.BindTexture(gl.TEXTURE_2D, texture)
 
 	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT)
@@ -256,6 +260,9 @@ func main() {
 	}
 
 	gl.UseProgram(program)
+
+	gl.Uniform1i(gl.GetUniformLocation(program, gl.Str("palette\x00")), 0)
+	gl.Uniform1i(gl.GetUniformLocation(program, gl.Str("gameTexture\x00")), 1)
 
 	gl.TexImage2D(gl.TEXTURE_2D, 0, gl.R8, 256, 240, 0, gl.RED, gl.UNSIGNED_BYTE, gl.Ptr(image_data))
 
