@@ -183,7 +183,7 @@ func getKeyCode(key string) (glfw.Key, error) {
 	if character >= 'A' && character <= 'Z' {
 		return glfw.Key(character), nil
 	} else {
-		return glfw.Key(0), fmt.Errorf("Invalid key %s", key)
+		return glfw.Key(0), fmt.Errorf("invalid key %s", key)
 	}
 }
 
