@@ -854,7 +854,6 @@ func _PHA(cpu *CPU, addressingMode uint8, address uint16, pageCycle bool) {
 }
 
 func _PHP(cpu *CPU, addressingMode uint8, address uint16, pageCycle bool) {
-	// TODO: Something?
 	cpu.Push(cpu.GetFlags())
 }
 

@@ -49,7 +49,7 @@ type TileData struct {
 	Data           uint64
 }
 
-type PPURegisters struct { // TODO: Update LaTeX file with the write/read restrictions
+type PPURegisters struct {
 	PPUCTRL   PPUCTRLRegister   // 0x2000 Write only
 	PPUMASK   PPUMASKRegister   // 0x2001 Write only
 	PPUSTATUS PPUSTATUSRegister // 0x2002 Read only

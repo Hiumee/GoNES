@@ -1,8 +1,10 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
 	"runtime"
@@ -157,6 +159,34 @@ var USER_INPUT struct {
 	A, B, Select, Start, Up, Down, Left, Right, Reset glfw.Key
 }
 
+type ConfigS struct {
+	Keys ConfigKeys `json:"keys"`
+}
+
+type ConfigKeys struct {
+	Up     string `json:"up"`
+	Down   string `json:"down"`
+	Left   string `json:"left"`
+	Right  string `json:"right"`
+	A      string `json:"a"`
+	B      string `json:"b"`
+	Select string `json:"select"`
+	Start  string `json:"start"`
+	Reset  string `json:"reset"`
+}
+
+func getKeyCode(key string) (glfw.Key, error) {
+	character := key[0]
+	if character >= 'a' && character <= 'z' {
+		character = character - 'a' + 'A'
+	}
+	if character >= 'A' && character <= 'Z' {
+		return glfw.Key(character), nil
+	} else {
+		return glfw.Key(0), fmt.Errorf("Invalid key %s", key)
+	}
+}
+
 func loadConfig() {
 	USER_INPUT.A = glfw.KeyI
 	USER_INPUT.B = glfw.KeyO
@@ -167,6 +197,97 @@ func loadConfig() {
 	USER_INPUT.Left = glfw.KeyA
 	USER_INPUT.Right = glfw.KeyD
 	USER_INPUT.Reset = glfw.KeyR
+
+	if *Config != "" {
+		configData, err := ioutil.ReadFile(*Config)
+		if err != nil {
+			log.Println("Could not read the configuration file. Using the default configuration")
+		}
+
+		var config ConfigS
+		json.Unmarshal(configData, &config)
+
+		if config.Keys.A != "" {
+			key, err := getKeyCode(config.Keys.A)
+			if err != nil {
+				log.Println("Invalid key for A:", config.Keys.A)
+			} else {
+				USER_INPUT.A = key
+			}
+		}
+
+		if config.Keys.B != "" {
+			key, err := getKeyCode(config.Keys.B)
+			if err != nil {
+				log.Println("Invalid key for B:", config.Keys.B)
+			} else {
+				USER_INPUT.B = key
+			}
+		}
+
+		if config.Keys.Select != "" {
+			key, err := getKeyCode(config.Keys.Select)
+			if err != nil {
+				log.Println("Invalid key for Select:", config.Keys.Select)
+			} else {
+				USER_INPUT.Select = key
+			}
+		}
+
+		if config.Keys.Start != "" {
+			key, err := getKeyCode(config.Keys.Start)
+			if err != nil {
+				log.Println("Invalid key for Start:", config.Keys.Start)
+			} else {
+				USER_INPUT.Start = key
+			}
+		}
+
+		if config.Keys.Up != "" {
+			key, err := getKeyCode(config.Keys.Up)
+			if err != nil {
+				log.Println("Invalid key for Up:", config.Keys.Up)
+			} else {
+				USER_INPUT.Up = key
+			}
+		}
+
+		if config.Keys.Down != "" {
+			key, err := getKeyCode(config.Keys.Down)
+			if err != nil {
+				log.Println("Invalid key for Down:", config.Keys.Down)
+			} else {
+				USER_INPUT.Down = key
+			}
+		}
+
+		if config.Keys.Left != "" {
+			key, err := getKeyCode(config.Keys.Left)
+			if err != nil {
+				log.Println("Invalid key for Left:", config.Keys.Left)
+			} else {
+				USER_INPUT.Left = key
+			}
+		}
+
+		if config.Keys.Right != "" {
+			key, err := getKeyCode(config.Keys.Right)
+			if err != nil {
+				log.Println("Invalid key for Right:", config.Keys.Right)
+			} else {
+				USER_INPUT.Right = key
+			}
+		}
+
+		if config.Keys.Reset != "" {
+			key, err := getKeyCode(config.Keys.Reset)
+			if err != nil {
+				log.Println("Invalid key for Reset:", config.Keys.Reset)
+			} else {
+				USER_INPUT.Reset = key
+			}
+		}
+	}
 }
 
 // 0,16,27,18

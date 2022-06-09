@@ -82,7 +82,6 @@ func (nes *NES) LoadFile(filename string) {
 	nes.Cartridge.Loaded = true
 
 	var pointer uint = 16
-	// TODO: Trainer?
 	memcpy(nes.Cartridge.PRG_ROM, data[pointer:(pointer+nes.Cartridge.Header.PRG_ROM_size)], nes.Cartridge.Header.PRG_ROM_size)
 	pointer += nes.Cartridge.Header.PRG_ROM_size
 	memcpy(nes.Cartridge.CHR_ROM, data[pointer:(pointer+nes.Cartridge.Header.CHR_ROM_size)], nes.Cartridge.Header.CHR_ROM_size)
